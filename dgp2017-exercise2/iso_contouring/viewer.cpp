@@ -93,17 +93,13 @@ void Viewer::calc_iso_contouring() {
             i++ ;
         }
 
-        // Found intersections on vertices
+        // Found intersections
         for(i = 0; i < 3; i++){
             if(val[i] == 0){
                 x0[intersection_count] = x[i];
                 y0[intersection_count] = y[i];
                 intersection_count++;
             }
-        }
-
-        // Fix intersections on edges
-        for(i = 0; i < 3; i++){
             if(val[i]*val[(i+1)%3] < 0){
                 x0[intersection_count] = x[i] + (val[i]/(val[i]-val[(i+1)%3]))*(x[(i+1)%3]-x[i]);
                 y0[intersection_count] = y[i] + (val[i]/(val[i]-val[(i+1)%3]))*(y[(i+1)%3]-y[i]);

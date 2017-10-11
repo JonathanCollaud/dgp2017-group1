@@ -15,6 +15,10 @@ using std::min;
 using std::max;
 using namespace surface_mesh;
 
+
+using std::cout ;using std::endl ;
+
+
 typedef Surface_mesh Mesh;
 
 // ========================================================================
@@ -34,7 +38,7 @@ Scalar Viewer::iso_value(Point v_pos)
     x = v_pos.x;
     y = v_pos.y;
 
-    // ----- (un)comment a line to change the function you are testing
+    // ----- (un)comment a line to change the function you are valing
     //Scalar iso = sqrt(x*x + y*y) - 1;
     //Scalar iso = sin(2*x+2*y) - cos(4*x*y) +1;
     Scalar iso = y*y - sin(x*x);
@@ -62,6 +66,7 @@ void Viewer::calc_iso_contouring() {
         std::vector<int> vv(3);
         int k = 0;
         for (auto v: mesh.vertices(f)) {
+            //cout<<mesh.vertices(f)<< endl ;
             vv[k] = v.idx();
             ++k;
         }
@@ -75,6 +80,42 @@ void Viewer::calc_iso_contouring() {
 
     // ----- add your code here -----
 
+    for(auto f: mesh.faces()) {
+        Vec3 val, x, y, x0 = {0,0,0}, y0 = {0,0,0};
+        int i = 0;
+        int intersection_count = 0;
+
+        // Compute value on each vertex of the face
+        for (auto v: mesh.vertices(f)) {
+            x[i] = v_positions[v.idx()][0] ;
+            y[i] = v_positions[v.idx()][1] ;
+            val[i] = iso_value(v_positions[v.idx()]) ;
+            i++ ;
+        }
+
+        // Found intersections on vertices
+        for(i = 0; i < 3; i++){
+            if(val[i] == 0){
+                x0[intersection_count] = x[i];
+                y0[intersection_count] = y[i];
+                intersection_count++;
+            }
+        }
+
+        // Fix intersections on edges
+        for(i = 0; i < 3; i++){
+            if(val[i]*val[(i+1)%3] < 0){
+                x0[intersection_count] = x[i] + (val[i]/(val[i]-val[(i+1)%3]))*(x[(i+1)%3]-x[i]);
+                y0[intersection_count] = y[i] + (val[i]/(val[i]-val[(i+1)%3]))*(y[(i+1)%3]-y[i]);
+                intersection_count++;
+            }
+        }
+
+        // Add intersections to segment_points
+        for(i = 0; i <=3; i++){
+            segment_points.push_back({x0[i],y0[i],0});
+        }
+    }
 
     // ------------------------------
 }

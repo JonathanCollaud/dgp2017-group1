@@ -95,22 +95,31 @@ void Viewer::calc_iso_contouring() {
 
         // Found intersections
         for(i = 0; i < 3; i++){
-            if(val[i] == 0){
+            /*if(val[i] == 0){
                 x0[intersection_count] = x[i];
                 y0[intersection_count] = y[i];
                 intersection_count++;
-            }
-            if(val[i]*val[(i+1)%3] < 0){
-                x0[intersection_count] = x[i] + (val[i]/(val[i]-val[(i+1)%3]))*(x[(i+1)%3]-x[i]);
-                y0[intersection_count] = y[i] + (val[i]/(val[i]-val[(i+1)%3]))*(y[(i+1)%3]-y[i]);
-                intersection_count++;
-            }
+            } else {*/
+                if(val[i]*val[(i+1)%3] <= 0){
+                    x0[intersection_count] = x[i] + (val[i]/(val[i]-val[(i+1)%3]))*(x[(i+1)%3]-x[i]);
+                    y0[intersection_count] = y[i] + (val[i]/(val[i]-val[(i+1)%3]))*(y[(i+1)%3]-y[i]);
+                    intersection_count++;
+                }
+            //}
         }
 
         // Add intersections to segment_points
-        for(i = 0; i <=3; i++){
-            segment_points.push_back({x0[i],y0[i],0});
+        if (intersection_count == 3) {
+            for(i = 0; i < 2; i++){
+                segment_points.push_back({x0[i],y0[i],0});
+                segment_points.push_back({x0[i+1],y0[i+1],0});
+            }
+        } else {
+            for(i = 0; i < 2; i++){
+                segment_points.push_back({x0[i],y0[i],0});
+            }
         }
+
     }
 
     // ------------------------------

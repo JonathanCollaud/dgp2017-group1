@@ -1,7 +1,7 @@
 
-dgp2017-exercise1/build/*
-dgp2017-exercise2/build/*
+*/build/*
 
 *.user
 
 dgp2017-exercise2/externals/nanogui/*
+

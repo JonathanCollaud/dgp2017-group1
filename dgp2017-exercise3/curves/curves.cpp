@@ -25,8 +25,8 @@ struct MainWindow : public TrackballWindow {
     // C key for the osculating circle.
     // Hint : try to play with epsilon
     // ============================================================================
-    Scalar epsilon = 0.0001; // time step for smoothing
-    Scalar tol = 0.001; // tolerance pour la difference de longueure acceptable
+    Scalar epsilon = 0.001; // time step for smoothing
+    Scalar tol = 0.005; // tolerance pour la difference de longueure acceptable
     Scalar epsilon2 = 0.0001; // ratio de déplacement des points lors de la correction de la longueur
 
     int it = 0 ;
@@ -34,8 +34,7 @@ struct MainWindow : public TrackballWindow {
 
     void laplacianSmoothing() {
         // Curve Smoothing - centroid (this function should do one iteration of smoothing)
-
-        auto m = num_points ; // pour alléger l'écriture
+        auto m = num_points; // pour alléger l'écriture
 
         if (it++ == 0){
             initial_length = calculate_length();
@@ -54,7 +53,7 @@ struct MainWindow : public TrackballWindow {
 
     void osculatingCircle() {
         // Curve Smoothing - osculating circle (again, this function should do one iteration of smoothing)
-        int m = num_points ; // pour alléger l'écriture
+        auto m = num_points; // pour alléger l'écriture
 
         // Dans cette partie il reste a corriger les lignes ci-dessous car il y a une faute dans mon algorithme et je sais pas où
         // Ceci peut être fait comme pour la partie du dessus a mon avis, on pourrais donc créer des fonction et les apeller dans les deux codes.
@@ -64,15 +63,15 @@ struct MainWindow : public TrackballWindow {
             initial_length = calculate_length();
         }
 
-        Scalar norm_2 = 1.;
-        Vec2 center, diff;
+        Scalar diff_x, diff_y, norm_2 = 1.;
+        Vec2 center;
         for (int i = 0; i < m - 1; i++) {
             center = circumscribedCenter((m + i - 1) % m, i, i + 1);
-            diff = {center[0] - points(0, i),
-                    center[1] - points(1, i)};
-            norm_2 = diff[0] * diff[0] + diff[1] * diff[1]; // carré de la norme de la différence entre centre et le pt
-            points(0, i) += epsilon * (diff[0] / norm_2);
-            points(1, i) += epsilon * (diff[1] / norm_2);
+            diff_x = center[0] - points(0, i);
+            diff_y = center[1] - points(1, i);
+            norm_2 = diff_x * diff_x + diff_y * diff_y; // carré de la norme de la différence entre centre et le pt
+            points(0, i) += epsilon * (diff_x / norm_2);
+            points(1, i) += epsilon * (diff_y / norm_2);
         }
 
         correctLength();
@@ -136,22 +135,24 @@ struct MainWindow : public TrackballWindow {
 
     void correctLength(){
         Scalar length = 0.;
-        Vec2 delta = {0., 0.};
-        Vec2 expand = {0., 0.};
+        Scalar delta_x, delta_y;
+        Scalar expand_x, expand_y;
         Vec2 center = computeCenter();
+        Scalar center_x = center[0], center_y = center[1];
         while (std::abs(length - initial_length) > tol){
             for (int i = 0; i < num_points - 1; ++i){
-                delta = {points(0,i) - center[0],
-                         points(1,i) - center[1]};
-                expand = {epsilon2 / (sqrt(delta[0] * delta[0] + delta[1] * delta[1])) * delta[0],
-                          epsilon2 / (sqrt(delta[0] * delta[0] + delta[1] * delta[1])) * delta[1]};
+                delta_x = points(0,i) - center_x;
+                delta_y = points(1,i) - center_y;
+                expand_x = epsilon2 / (sqrt(delta_x * delta_x + delta_y * delta_y)) * delta_x;
+                expand_y = epsilon2 / (sqrt(delta_x * delta_x + delta_y * delta_y)) * delta_y;
 
                 if (length > initial_length) {
-                    expand = -expand;
+                    points(0,i) -= expand_x;
+                    points(1,i) -= expand_y;
+                } else {
+                    points(0,i) += expand_x;
+                    points(1,i) += expand_y;
                 }
-
-                points(0,i) += expand[0];
-                points(1,i) += expand[1];
             }
 
             length = calculate_length();
@@ -172,12 +173,14 @@ struct MainWindow : public TrackballWindow {
 
     // Calcul de la position du point moyen (centre du cercle estimé) et de la longueur total de la courbe
     Vec2 computeCenter(){
-        Vec2 center = {0., 0.};
+        Scalar center_x = 0., center_y = 0.;
         for (int i = 0; i < num_points - 1; i++){
-            center += Vec2({points(0,i), points(1,i)});
+            center_x += points(0,i);
+            center_y = points(1,i);
         }
-        center /= num_points - 1;
-        return center;
+        center_x /= num_points - 1;
+        center_y /= num_points - 1;
+        return {center_x, center_y};
     }
 
     // ============================================================================

@@ -25,7 +25,7 @@ struct MainWindow : public TrackballWindow {
     // C key for the osculating circle.
     // Hint : try to play with epsilon
     // ============================================================================
-    Scalar epsilon = 0.001; // time step for smoothing
+    Scalar epsilon = 0.01; // time step for smoothing
     Scalar tol = 0.005; // tolerance pour la difference de longueure acceptable
     Scalar epsilon2 = 0.0001; // ratio de déplacement des points lors de la correction de la longueur
 
@@ -35,6 +35,7 @@ struct MainWindow : public TrackballWindow {
     void laplacianSmoothing() {
         // Curve Smoothing - centroid (this function should do one iteration of smoothing)
         auto m = num_points; // pour alléger l'écriture
+        epsilon = 0.01;
 
         if (it++ == 0){
             initial_length = calculate_length();
@@ -54,7 +55,8 @@ struct MainWindow : public TrackballWindow {
     void osculatingCircle() {
         // Curve Smoothing - osculating circle (again, this function should do one iteration of smoothing)
         auto m = num_points; // pour alléger l'écriture
-
+        epsilon = 0.001;
+        
         // Dans cette partie il reste a corriger les lignes ci-dessous car il y a une faute dans mon algorithme et je sais pas où
         // Ceci peut être fait comme pour la partie du dessus a mon avis, on pourrais donc créer des fonction et les apeller dans les deux codes.
         // j'espère que j'ai été clair ^^, si jamais redites moi je vous donnerai plus d'explication :D

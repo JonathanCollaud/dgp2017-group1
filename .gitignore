@@ -4,5 +4,5 @@
 *.user
 *.zip
 
-dgp2017-exercise2/externals/nanogui/*
+dgp2017-exercise*/externals/nanogui/*
 

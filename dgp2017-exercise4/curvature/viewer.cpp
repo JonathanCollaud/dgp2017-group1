@@ -118,41 +118,41 @@ void Viewer::computeNormalsWithConstantWeights() {
     // technique (see .pdf) and store it inside v_cste_weights_n[v]
     // ------------- IMPLEMENT HERE ---------
 
-    //allocations des vertices itérateur, début, fin (cf slide 35 SM tuto)
+    //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
     Mesh::Vertex_iterator v_it, v_begin, v_end;
 
-    //initialisation des vertex alloués ci-dessus
+    //init vertices
     v_begin = mesh.vertices_begin();
     v_end = mesh.vertices_end();
 
-    //boucle sur chaque vertex du mesh Mesh
+    //iterate over mesh vertices
     for( v_it = v_begin ; v_it != v_end; ++ v_it )
     {
 
-        //allocation du circulateur
+        //allocate the circulator
         Mesh::Vertex v = *v_it;
         Mesh::Vertex_around_vertex_circulator vc, vc_end;
+
         Point pc, p1, p2, crossprod, sum;
 
-        //début et fin
+        //begin and end
         vc = mesh.vertices(v);
         vc_end = vc;
-        //position du centre
+        //center position
         pc = mesh.position(v);
         sum = (0.0, 0.0, 0.0);
 
-        //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
+        //loop around vertex v_it (cf slide 40 SM tuto)
         do{
-            //on stock deux voisins à chaque étapes pour le cross product
+            //p1 and p2 are both neighbours ready for cross product
             p1 = mesh.position(*vc);
             p2 = mesh.position(*(++vc));
             crossprod = cross(p1-pc,p2-pc);
             sum = sum + crossprod/norm(crossprod);
-        }while(++vc != vc_end);
+        }while(vc != vc_end);
         v_cste_weights_n[v] = sum/norm(sum);
     }
 }
-
 // ========================================================================
 // EXERCISE 1.2
 // ========================================================================
@@ -166,14 +166,14 @@ void Viewer::computeNormalsByAreaWeights() {
     // to the areas technique (see .pdf) and store inside v_area_weights_n[v]
     // ------------- IMPLEMENT HERE ---------
 
-    //allocations des vertices itérateur, début, fin (cf slide 35 SM tuto)
+    //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
     Mesh::Vertex_iterator v_it, v_begin, v_end;
 
-    //initialisation des vertex alloués ci-dessus
+    //init vertices
     v_begin = mesh.vertices_begin();
     v_end = mesh.vertices_end();
 
-    //boucle sur chaque vertex du mesh Mesh
+    //iterate over mesh vertices
     for( v_it = v_begin ; v_it != v_end; ++ v_it )
     {
 
@@ -190,7 +190,7 @@ void Viewer::computeNormalsByAreaWeights() {
         pc = mesh.position(v);
         sum = (0.0, 0.0, 0.0);
 
-        //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
+        //loop around vertex v_it (cf slide 40 SM tuto)
         do{
             //on stock deux voisins à chaque étapes pour le cross product
             p1 = mesh.position(*vc);
@@ -200,11 +200,10 @@ void Viewer::computeNormalsByAreaWeights() {
             sum = sum + crossprod*area/norm(crossprod);
             //version simplifiée sans area :
             //sum = sum + crossprod/2;
-        }while(++vc != vc_end);
+        }while(vc != vc_end);
         v_area_weights_n[v] = sum/norm(sum);
     }
 }
-
 // ========================================================================
 // EXERCISE 1.3
 // ========================================================================
@@ -218,57 +217,49 @@ void Viewer::computeNormalsWithAngleWeights() {
     // to the angles technique (see .pdf) and store it inside v_angle_weights_n[v]
     // ------------- IMPLEMENT HERE ---------
 
-    //allocations des vertices itérateur, début, fin (cf slide 35 SM tuto)
+    //Iterator vertices allocation
     Mesh::Vertex_iterator v_it, v_begin, v_end;
 
-    //initialisation des vertex alloués ci-dessus
+    //init vertices
     v_begin = mesh.vertices_begin();
     v_end = mesh.vertices_end();
 
-    //---------------TESTS---------------
-    double epsilon = 0.0001; //utilisé pour spot les divisions par 0
-    //-----------------------------------
-
-    //boucle sur chaque vertex du mesh Mesh
+    //Loop over each vertex of the mesh
     for( v_it = v_begin ; v_it != v_end; ++ v_it )
     {
 
-        //allocation du circulateur
+        //allocate the circulator
         Mesh::Vertex v = *v_it;
         Mesh::Vertex_around_vertex_circulator vc, vc_end;
         Point pc, p1, p2, crossprod, sum;
-        float angle = 0;
-        float dotprod = 0;
+        Scalar angle = 0;
+        Scalar dotprod = 0;
 
-        //début et fin
+        //definition of begin and end points
         vc = mesh.vertices(v);
         vc_end = vc;
-        //position du centre
+        //position of the center
         pc = mesh.position(v);
         sum = (0.0, 0.0, 0.0);
 
-        //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
+        //circulation loop over the center
         do{
-            //on stock deux voisins à chaque étapes pour le cross product
+            //Here we define auxiliary variable for more lisibility
+
+            //Saving two neighboors for the crossporduct
             p1 = mesh.position(*vc);
             p2 = mesh.position(*(++vc));
+
+            //crossproduct
             crossprod = cross(p1-pc,p2-pc);
+
+            //dotproduct
             dotprod = dot(p1-pc,p2-pc);
-            //on ressort :|a^b| = |a||b|sin(theta) -> theta = arcsin(|a^b|/|a||b|)
-            //angle = asin(norm(crossprod)/(norm(p1-pc)*norm(p2-pc)));
-            //essai avec a*b = |a||b|cos(theta)
+            //from a*b = |a||b|cos(theta)
             angle = acos(dotprod/(norm(p1-pc)*norm(p2-pc)));
 
-            //-----------------TESTS-------------------
-            //on vérifie s'il n'y a pas de division par un nombre trop petit.
-            if(norm(p1-pc)<epsilon)
-            {cout<< "waring, division by < "<<epsilon<< "because of p1-pc"<<endl;}
-            if(norm(p2-pc)<epsilon)
-            {cout<< "waring, division by < "<<epsilon<< "because of p2-pc"<<endl;}
-            //-----------------------------------------
-
-            sum = sum + crossprod*angle/norm(crossprod);
-        }while(++vc != vc_end);
+            sum = sum + angle * crossprod/norm(crossprod);
+        }while(vc != vc_end);
         v_angle_weights_n[v] = sum/norm(sum);
     }
 }
@@ -276,6 +267,7 @@ void Viewer::computeNormalsWithAngleWeights() {
 // ========================================================================
 // EXERCISE 2.1
 // ========================================================================
+
 void Viewer::calc_uniform_laplacian() {
     Mesh::Vertex_property<Scalar> v_uniLaplace = mesh.vertex_property<Scalar>("v:uniLaplace", 0);
     Mesh::Vertex_around_vertex_circulator   vv_c, vv_end;
@@ -290,55 +282,57 @@ void Viewer::calc_uniform_laplacian() {
     // Store min and max values of v_uniLaplace[v] in min_uniLaplace and max_uniLaplace.
     // ------------- IMPLEMENT HERE ---------
 
-    //allocations des vertices itérateur, début, fin (cf slide 35 SM tuto)
+    //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
     Mesh::Vertex_iterator v_it, v_begin, v_end;
 
-    //initialisation des vertex alloués ci-dessus
+    //init vertices
     v_begin = mesh.vertices_begin();
     v_end = mesh.vertices_end();
 
-    //boucle sur chaque vertex du mesh Mesh
+    //iterate over mesh vertices
     for(v_it = v_begin ; v_it != v_end; ++ v_it )
     {
-        // Comment verifier si le vertex est sur une boudary ?
-
         //allocation de l'itérateur pour tourner autour de chaque vertex
         Mesh::Vertex v = *v_it;
-
         //début et fin
         vv_c = mesh.vertices(v);
         vv_end = vv_c;
 
-        Scalar sum = 0.0;                  // coment réinitialiser à zéro ?  le type 'vertex' peut ne pas être le bon type ... dépends de la somme
         Scalar n = 0 ;
-        //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
+        laplace = 0;
+
+        //loop around vertex v_it (cf slide 40 SM tuto)
         do {
             Mesh::Vertex vi = *vv_c;
-            sum += norm(mesh.position(vi) - mesh.position(v));
+            laplace += (mesh.position(vi) - mesh.position(v));
             n++;
         } while(++vv_c != vv_end);
-        Scalar L_u = sum / n ;
+        laplace = laplace/n ;
 
         // Check min or max ?
-        if(L_u > max_uniLaplace){
-            max_uniLaplace = L_u ;
+        if(norm(laplace) > max_uniLaplace){
+            max_uniLaplace = norm(laplace) ;
         }
-        else if(L_u < min_uniLaplace){
-            min_uniLaplace = L_u ;
+        else if(norm(laplace) < min_uniLaplace){
+            min_uniLaplace = norm(laplace) ;
         }
-        v_uniLaplace[v] = L_u ;
+        v_uniLaplace[v] = norm(laplace) ;
     }
 }
 
+
 // ========================================================================
+
 // EXERCISE 2.2
+
 // ========================================================================
+
 void Viewer::calc_mean_curvature() {
     Mesh::Vertex_property<Scalar>  v_curvature = mesh.vertex_property<Scalar>("v:curvature", 0);
     Mesh::Edge_property<Scalar> e_weight = mesh.edge_property<Scalar>("e:weight", 0);
     Mesh::Vertex_property<Scalar>  v_weight = mesh.vertex_property<Scalar>("v:weight", 0);
     Mesh::Halfedge_around_vertex_circulator vh_c, vh_end;
-    //Mesh::Vertex neighbor_v;
+    Mesh::Vertex neighbor_v;
     Mesh::Edge e;
     Point laplace(0.0);
     min_mean_curvature = 1000;
@@ -351,51 +345,47 @@ void Viewer::calc_mean_curvature() {
     // Use the weights from calc_weights(): e_weight and v_weight
     // ------------- IMPLEMENT HERE ---------
 
-
-    //allocations des vertices itérateur, début, fin (cf slide 35 SM tuto)
+    //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
     Mesh::Vertex_iterator v_it, v_begin, v_end;
 
-
-    //initialisation des vertex alloués ci-dessus
+    //init vertices
     v_begin = mesh.vertices_begin();
     v_end = mesh.vertices_end();
 
-    //boucle sur chaque vertex du mesh Mesh
+    //iterate over mesh vertices
     for( v_it = v_begin ; v_it != v_end; ++ v_it )
     {
-        // Comment verifier si le vertex est sur une boudary ?
+        //allocate itérator to turn around each vertex
+        Mesh::Vertex v = *v_it;
+        Point P = mesh.position(v);
 
-        //allocation de l'itérateur pour tourner autour de chaque vertex
-        auto V = mesh.position(*v_it) ;
-
-        //début et fin
-        vh_c = mesh.vertices(v);
+        //begin and end
+        vh_c = mesh.halfedges(v);
         vh_end = vh_c;
+        laplace = 0;
 
-        Scalar sum = 0;
-        //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
+        //loop around vertex v_it (cf slide 40 SM tuto)
         do{
-            auto vhc = mesh.to_vertex(*vh_c) ;
-            auto Vi = mesh.position(vhc) ;
-            e = mesh.edge(*vh_c) ;
-            sum = sum + (V-Vi)*e_weight[e] ;                             // On est sencé obtenir une valeur scalaire, comment est-ce possible; formule 'v_i - v' qui sont des point en 3D ?!
+            Point Pi = mesh.position(mesh.to_vertex(*vh_c));
+            e = mesh.edge(*vh_c);
+            laplace = laplace + (Pi-P)*e_weight[e];
         }while(++vh_c != vh_end);
-        auto Lb = sum*v_weight[*v_it] ;
 
+        laplace = laplace * v_weight[*v_it] ;
 
-        if(L_b > max_mean_curvature){
-            max_mean_curvature = L_b ;
+        if(norm(laplace) > max_mean_curvature){
+            max_mean_curvature = norm(laplace) ;
         }
-        else if(L_b < min_mean_curvature){
-            min_mean_curvature = L_b ;
+        else if(norm(laplace) < min_mean_curvature){
+            min_mean_curvature = norm(laplace) ;
         }
-        v_curvature[*v_it] = L_b ;
+        v_curvature[*v_it] = norm(laplace) ;
     }
 }
-
 // ========================================================================
 // EXERCISE 2.3
 // ========================================================================
+
 void Viewer::calc_gauss_curvature() {
     Mesh::Vertex_property<Scalar> v_gauss_curvature = mesh.vertex_property<Scalar>("v:gauss_curvature", 0);
     Mesh::Vertex_property<Scalar> v_weight = mesh.vertex_property<Scalar>("v:weight", 0);
@@ -414,47 +404,52 @@ void Viewer::calc_gauss_curvature() {
     // Use the v_weight property for the area weight.
     // ------------- IMPLEMENT HERE ---------
 
-    //allocations des vertices itérateur, début, fin (cf slide 35 SM tuto)
+    //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
     Mesh::Vertex_iterator v_it, v_begin, v_end;
 
-
-    //initialisation des vertex alloués ci-dessus
+    //init vertices
     v_begin = mesh.vertices_begin();
     v_end = mesh.vertices_end();
 
-    //boucle sur chaque vertex du mesh Mesh
+    Scalar G = 0;
+
+    //iterate over mesh vertices
     for( v_it = v_begin ; v_it != v_end; ++ v_it )
     {
-        // Comment verifier si le vertex est sur une boudary ?
 
+        //allocate itérator to turn around each vertex
+        Point d = mesh.position(*v_it) ;
 
-        //allocation de l'itérateur pour tourner autour de chaque vertex
-
-        auto V = mesh.position(*v_it) ;
-        //début et fin
+        //begin and end
         Mesh::Vertex v = *v_it;
         vv_c = mesh.vertices(v);
 
         vv_end = vv_c;
-        Scalar theta_tot = 0;
-        //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
+
+        angles = 0;
+
+        //loop around vertex v_it (cf slide 40 SM tuto)
         do{
-            auto V_1 = mesh.position(*vv_c) ;
-            auto V_2 = mesh.position(*++vv_c) ;
-            auto vect_1 = V_1 - V ;
-            auto vect_2 = V_2 - V ;
-            auto theta = asin(norm(cross(vect_1,vect_2))/(norm(vect_1) * norm(vect_2))) ;
-            theta_tot = theta_tot + theta ;
-            auto G = (2*3.1415 -theta_tot)/v_weight[*v_it] ;
+            d0 = mesh.position(*vv_c) ;
+            vv_c2 = ++vv_c;
+            d1 = mesh.position(*vv_c2) ;
+            cos_angle = dot(d-d0,d-d1)/(norm(d-d0) * norm(d-d1)) ;
 
+            //checking if cos_angle is between -1 and 1 and restraining it
+            if(cos_angle>ub){ cos_angle = ub; }
+            if(cos_angle<lb){ cos_angle = lb; }
 
-            if(G > max_gauss_curvature){
-                max_gauss_curvature = G ;
-            }
-            else if(G < min_gauss_curvature){
-                min_gauss_curvature = G ;
-            }
-            v_gauss_curvature[*v_it] = G ;
+            angles += acos(cos_angle);
+        }while(vv_c != vv_end);
+
+        G = (2*M_PI -angles)*2*v_weight[*v_it] ;
+
+        if(G > max_gauss_curvature){
+            max_gauss_curvature = G ;
         }
+        else if(G < min_gauss_curvature){
+            min_gauss_curvature = G ;
+        }
+        v_gauss_curvature[*v_it] = G ;
     }
 }

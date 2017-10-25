@@ -312,7 +312,7 @@ void Viewer::calc_uniform_laplacian() {
            vv_end = vv_c;
 
             auto V = mesh.position(v) ;
-            Mesh::Vertex sum;                                              // coment réinitialiser à zéro ?  le type 'vertex' peut ne pas être le bon type ... dépends de la somme
+            Scalar sum = 0;                                              // coment réinitialiser à zéro ?  le type 'vertex' peut ne pas être le bon type ... dépends de la somme
             Scalar n = 0 ;
            //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
            do{
@@ -320,16 +320,16 @@ void Viewer::calc_uniform_laplacian() {
                n++ ;
                sum = sum + (Vi-V) ;                                         // On est sencé obtenir une valeur scalaire, comment est-ce possible; formule 'v_i - v' qui sont des point en 3D ?!
            }while(++vv_c != vv_end);
-            auto Lb = sum/n ;
+            auto Lu = sum/n ;
 
             // Check min or max ?
-            if(Lb > max_uniLaplace){
-                max_uniLaplace = Lb ;
+            if(Lu > max_uniLaplace){
+                max_uniLaplace = Lu ;
             }
-            else if(Lb < min_uniLaplace){
-                min_uniLaplace = Lb ;
+            else if(Lu < min_uniLaplace){
+                min_uniLaplace = Lu ;
             }
-            v_uniLaplace[*v_it] = Lb ;
+            v_uniLaplace[*v_it] = Lu ;
         }
 }
 
@@ -370,19 +370,18 @@ void Viewer::calc_mean_curvature() {
 
 
            //allocation de l'itérateur pour tourner autour de chaque vertex
-           Mesh::Vertex v = *v_it;
-           auto V = mesh.position(v) ;
+           auto V = mesh.position(*v_it) ;
 
            //début et fin
            vh_c = mesh.halfedges(*v_it);
            vh_end = vh_c;
 
-            Mesh::Vertex sum;                                               // coment remettre à zéro ? le type 'vertex' peut ne pas être le bon type ... dépends de la somme
+            Scalar sum = 0;
            //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
            do{
                auto vhc = mesh.to_vertex(*vh_c) ;
                auto Vi = mesh.position(vhc) ;
-               e = mesh.edge(*vh_c) ;                                       // comment obtenir l'edge relative au vertex courant de la boucle ?
+               e = mesh.edge(*vh_c) ;
                sum = sum + (V-Vi)*e_weight[e] ;                             // On est sencé obtenir une valeur scalaire, comment est-ce possible; formule 'v_i - v' qui sont des point en 3D ?!
            }while(++vh_c != vh_end);
             auto Lb = sum*v_weight[*v_it] ;
@@ -418,4 +417,48 @@ void Viewer::calc_gauss_curvature() {
     // you pass to the acos function is between -1.0 and 1.0.
     // Use the v_weight property for the area weight.
     // ------------- IMPLEMENT HERE ---------
+
+    //allocations des vertices itérateur, début, fin (cf slide 35 SM tuto)
+        Mesh::Vertex_iterator v_it, v_begin, v_end;
+
+
+        //initialisation des vertex alloués ci-dessus
+        v_begin = mesh.vertices_begin();
+        v_end = mesh.vertices_end();
+
+        //boucle sur chaque vertex du mesh Mesh
+        for( v_it = v_begin ; v_it != v_end; ++ v_it )
+        {
+                                                                            // Comment verifier si le vertex est sur une boudary ?
+
+
+           //allocation de l'itérateur pour tourner autour de chaque vertex
+
+           auto V = mesh.position(*v_it) ;
+           //début et fin
+           Mesh::Vertex v = *v_it;
+           vv_c = mesh.vertices(v);
+
+           vv_end = vv_c;
+            Scalar theta_tot = 0;
+           //boucle qui tourne autour du vertex v_it (cf slide 40 SM tuto)
+           do{
+                auto V_1 = mesh.position(*vv_c) ;
+                auto V_2 = mesh.position(*++vv_c) ;
+                auto vect_1 = V_1 - V ;
+                auto vect_2 = V_2 - V ;
+                auto theta = asin(norm(cross(vect_1,vect_2))/(norm(vect_1) * norm(vect_2))) ;
+                theta_tot = theta_tot + theta ;
+                auto G = (2*3.1415 -theta_tot)/v_weight[*v_it] ;
+
+
+                if(G > max_gauss_curvature){
+                    max_gauss_curvature = G ;
+                }
+                else if(G < min_gauss_curvature){
+                    min_gauss_curvature = G ;
+                }
+            v_gauss_curvature[*v_it] = G ;
+            }
+        }
 }

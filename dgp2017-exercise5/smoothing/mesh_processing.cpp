@@ -36,21 +36,105 @@ void MeshProcessing::uniform_smooth(const unsigned int iterations) {
         // ------------- IMPLEMENT HERE ---------
         // For each non-boundary vertex, update its position according to the uniform Laplacian operator
         // ------------- IMPLEMENT HERE ---------
+        Scalar dtl = 0.2;
+        //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
+        Mesh::Vertex_iterator v_it, v_begin, v_end;
+        Mesh::Vertex_around_vertex_circulator   vv_c, vv_end;
+        Point             laplace(0.0);
+        Scalar              n;
+
+        //allocation of a temporary array to stock all p' positions
+        Mesh::Vertex_property<Point> points = mesh_.get_vertex_property<Point>("v:point");
+
+        //init vertices
+        v_begin = mesh_.vertices_begin();
+        v_end = mesh_.vertices_end();
+        //iterate over mesh vertices to compute p'
+        for(v_it = v_begin ; v_it != v_end; ++ v_it )
+        {
+                if (!mesh_.is_boundary(*v_it)){
+                    vv_c = mesh_.vertices(*v_it);
+                    vv_end = vv_c;
+                    n = 0;
+                    do {
+                        laplace += (mesh_.position(*vv_c) - mesh_.position(*v_it));
+                        ++n;
+                    } while(++vv_c != vv_end);
+
+                    laplace /= n;
+                    points[*v_it] = mesh_.position(*v_it) + dtl * laplace;
+                }
+        }
+        //iterating a second time to put new p' in p
+        for(v_it = v_begin ; v_it != v_end; ++ v_it ){
+            mesh_.position(*v_it) = points[*v_it];
+        }
     }
 }
 
 // ======================================================================
 // EXERCISE 1.2
 // ========================================================================
-void MeshProcessing::smooth(const unsigned int iterations) {
-
-    for (unsigned int iter=0; iter<iterations; ++iter) {
+void MeshProcessing::smooth(const unsigned int iterations)
+{
+    for(unsigned int iter=0; iter<iterations; ++iter)
+    {
         // ------------- IMPLEMENT HERE ---------
         // Perform Cotan Laplacian smoothing:
         // 1) precompute edge weights using calc_edge_weights()
         // 2) for each non-boundary vertex, update its position using the normalized cotan Laplacian operator
-        //    (Hint: use the precomputed edge weights in the edge property "e:weight")
+        // (Hint: use the precomputed edge weights in the edge property "e:weight")
         // ------------- IMPLEMENT HERE ---------
+
+
+        //allocation of iterating vertices, begin, end (cf slide 35 SM tuto) and halfedge circulator
+        Mesh::Vertex_iterator v_it, v_begin, v_end;
+        Mesh::Halfedge_around_vertex_circulator vv_c, vv_end;
+
+        // Some variable allocation
+        Point laplace(0.0);
+        Scalar sum_weights;
+        Scalar dtl = 0.2;
+        Mesh::Edge e;
+        Mesh::Vertex ver ;
+
+        //allocation of a temporary array to stock all p' positions
+        Mesh::Vertex_property<Point> points = mesh_.get_vertex_property<Point>("v:point");
+
+        //precomputing and stocking the edge weights {w_j}
+        calc_edges_weights();
+        Mesh::Edge_property<Scalar> weights = mesh_.get_edge_property<Scalar>("e:weight");
+
+        // init vertices
+        v_begin = mesh_.vertices_begin();
+        v_end = mesh_.vertices_end();
+
+        //iterate over mesh vertices to compute p'
+        for(v_it=v_begin ; v_it!=v_end; ++v_it ){
+            if (!mesh_.is_boundary(*v_it)){ // boundary check
+
+                // Circulator initialisation
+                vv_c = mesh_.halfedges(*v_it);
+                vv_end = vv_c;
+
+                // resetting the sums
+                laplace = {0,0,0};
+                sum_weights = 0;
+                do{
+                    ver = mesh_.to_vertex(*vv_c) ;
+                    e = mesh_.edge(*vv_c);
+                    laplace += weights[e]*(mesh_.position(ver) - mesh_.position(*v_it));
+                    sum_weights += weights[e];
+                } while(++vv_c != vv_end);
+                laplace = laplace/sum_weights;
+                points[*v_it] = mesh_.position(*v_it) + dtl * laplace;
+            }
+        }
+
+        //iterating a second time to put new p' in p
+        for(v_it = v_begin ; v_it != v_end; ++ v_it ){
+            mesh_.position(*v_it) = points[*v_it];
+        }
     }
 }
 
@@ -76,8 +160,67 @@ void MeshProcessing::implicit_smoothing(const double timestep) {
     // nonzero elements of A as triplets: (row, column, value)
     std::vector< Eigen::Triplet<double> > triplets;
 
+
     // ========================================================================
     // TODO: IMPLEMENTATION FOR EXERCISE 2 HERE
+
+
+
+
+
+    // MAIN PROBLEM IS TO FIND THE INDEX OF EACH VERTEX !!!
+
+
+
+
+
+    //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
+    Mesh::Vertex_iterator v_it, v_begin, v_end;
+
+    // some variable declarations
+    Scalar dtl = 0.5 ;
+    Scalar sum ;
+    Mesh::Edge e;
+    Mesh::Vertex ver ;
+    Point p ;
+
+    //init vertices
+    v_begin = mesh_.vertices_begin();
+    v_end = mesh_.vertices_end();
+
+    //iterate over all mesh vertices in order to fill the matrices
+    for( v_it = v_begin ; v_it != v_end; ++ v_it )
+    {
+
+        //allocate the halfedge circulator
+        Mesh::Vertex v = *v_it;
+        Mesh::Halfedge_around_vertex_circulator vc, vc_end;
+
+
+        //begin and end
+        vc = mesh_.halfedges(v);
+        vc_end = vc;
+
+        //center position
+        p = mesh_.position(*v_it);
+
+        // Fill matrix B (if i understood it correctly)
+//        B(v_it,0) = 1/area_inv[*v_it]*p[0] ;
+//        B(v_it,1) = 1/area_inv[*v_it]*p[1] ;
+//        B(v_it,2) = 1/area_inv[*v_it]*p[2] ;
+
+
+        //loop around vertex v_it (cf slide 40 SM tuto) to get the necessary values to fill 'M'
+        do{
+            e = mesh_.edge(*vc);
+            ver = mesh_.to_vertex(*vc) ;
+            sum += cotan[e] ; // Sum used to obtain M(i,i)
+//            triplets.push_back(Eigen::Triplet<double> (v_it,ver, (1/area_inv[*v_it] - dtl * cotan[e]))); // Elements of A(i,j) = (D^-1 - dtl*M(i,j))
+        }while(++vc != vc_end);
+        double diag = 1/area_inv[*v_it] + dtl * sum ; // Element A(i,i)
+//       triplets.push_back(Eigen::Triplet<double> (v_it,v_it,diag)); // Element A(i,i)
+    }
+
     // ========================================================================
 
     // build sparse matrix from triplets
@@ -136,7 +279,29 @@ void MeshProcessing::calc_weights() {
 void MeshProcessing::calc_uniform_mean_curvature() {
     Mesh::Vertex_property<Scalar> v_unicurvature =
             mesh_.vertex_property<Scalar>("v:unicurvature", 0.0f);
-    // ------------- COPY YOUR FUNCTION FROM EXERCISE 4 ---------
+    Mesh::Vertex_around_vertex_circulator   vv_c, vv_end;
+    Point             laplace(0.0);
+
+    for (auto v: mesh_.vertices()) {
+        Scalar curv = 0;
+
+        if (!mesh_.is_boundary(v)) {
+            laplace = Point(0.0f);
+            double n = 0;
+            vv_c = mesh_.vertices(v);
+            vv_end = vv_c;
+
+            do {
+                laplace += (mesh_.position(*vv_c) - mesh_.position(v));
+                ++n;
+            } while(++vv_c != vv_end);
+
+            laplace /= n;
+
+            curv = norm(laplace);
+        }
+        v_unicurvature[v] = curv;
+    }
 }
 
 void MeshProcessing::calc_mean_curvature() {
@@ -146,7 +311,34 @@ void MeshProcessing::calc_mean_curvature() {
             mesh_.edge_property<Scalar>("e:weight", 0.0f);
     Mesh::Vertex_property<Scalar>  v_weight =
             mesh_.vertex_property<Scalar>("v:weight", 0.0f);
-    // ------------- COPY YOUR FUNCTION FROM EXERCISE 4 ---------
+
+    Mesh::Halfedge_around_vertex_circulator vh_c, vh_end;
+    Mesh::Vertex neighbor_v;
+    Mesh::Edge e;
+    Point laplace(0.0f, 0.0f, 0.0f);
+
+    for (auto v: mesh_.vertices()) {
+        Scalar curv = 0.0f;
+
+        if (!mesh_.is_boundary(v)) {
+            laplace = Point(0.0f, 0.0f, 0.0f);
+
+            vh_c = mesh_.halfedges(v);
+            vh_end = vh_c;
+
+            do {
+                e = mesh_.edge(*vh_c);
+                neighbor_v = mesh_.to_vertex(*vh_c);
+                laplace += e_weight[e] * (mesh_.position(neighbor_v) -
+                                          mesh_.position(v));
+
+            } while(++vh_c != vh_end);
+
+            laplace *= v_weight[v];
+            curv = norm(laplace);
+        }
+        v_curvature[v] = curv;
+    }
 }
 
 void MeshProcessing::calc_gauss_curvature() {
@@ -154,7 +346,34 @@ void MeshProcessing::calc_gauss_curvature() {
             mesh_.vertex_property<Scalar>("v:gauss_curvature", 0.0f);
     Mesh::Vertex_property<Scalar> v_weight =
             mesh_.vertex_property<Scalar>("v:weight", 0.0f);
-    // ------------- COPY YOUR FUNCTION FROM EXERCISE 4 ---------
+    Mesh::Vertex_around_vertex_circulator vv_c, vv_c2, vv_end;
+    Point d0, d1;
+    Scalar angles, cos_angle;
+    Scalar lb(-1.0f), ub(1.0f);
+
+    // compute for all non-boundary vertices
+    for (auto v: mesh_.vertices()) {
+        Scalar curv = 0.0f;
+
+        if (!mesh_.is_boundary(v)) {
+            angles = 0.0f;
+
+            vv_c = mesh_.vertices(v);
+            vv_end = vv_c;
+
+            do {
+                vv_c2 = vv_c;
+                ++ vv_c2;
+                d0 = normalize(mesh_.position(*vv_c) - mesh_.position(v));
+                d1 = normalize(mesh_.position(*vv_c2) - mesh_.position(v));
+                cos_angle = max(lb, min(ub, dot(d0, d1)));
+                angles += acos(cos_angle);
+            } while(++vv_c != vv_end);
+
+            curv = (2 * 3.1415 - angles) * 2.0f * v_weight[v];
+        }
+        v_gauss_curvature[v] = curv;
+    }
 }
 
 void MeshProcessing::calc_edges_weights() {

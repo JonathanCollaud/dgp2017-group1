@@ -52,18 +52,18 @@ void MeshProcessing::uniform_smooth(const unsigned int iterations) {
         //iterate over mesh vertices to compute p'
         for(v_it = v_begin ; v_it != v_end; ++ v_it )
         {
-                if (!mesh_.is_boundary(*v_it)){
-                    vv_c = mesh_.vertices(*v_it);
-                    vv_end = vv_c;
-                    n = 0;
-                    do {
-                        laplace += (mesh_.position(*vv_c) - mesh_.position(*v_it));
-                        ++n;
-                    } while(++vv_c != vv_end);
+            if (!mesh_.is_boundary(*v_it)){
+                vv_c = mesh_.vertices(*v_it);
+                vv_end = vv_c;
+                n = 0;
+                do {
+                    laplace += (mesh_.position(*vv_c) - mesh_.position(*v_it));
+                    ++n;
+                } while(++vv_c != vv_end);
 
-                    laplace /= n;
-                    points[*v_it] = mesh_.position(*v_it) + dtl * laplace;
-                }
+                laplace /= n;
+                points[*v_it] = mesh_.position(*v_it) + dtl * laplace;
+            }
         }
         //iterating a second time to put new p' in p
         for(v_it = v_begin ; v_it != v_end; ++ v_it ){
@@ -160,41 +160,31 @@ void MeshProcessing::implicit_smoothing(const double timestep) {
     // nonzero elements of A as triplets: (row, column, value)
     std::vector< Eigen::Triplet<double> > triplets;
 
-
     // ========================================================================
     // TODO: IMPLEMENTATION FOR EXERCISE 2 HERE
-
-
-
-
-
     // MAIN PROBLEM IS TO FIND THE INDEX OF EACH VERTEX !!!
-
-
-
-
 
     //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
     Mesh::Vertex_iterator v_it, v_begin, v_end;
 
     // some variable declarations
-    Scalar dtl = 0.5 ;
-    Scalar sum ;
+    Scalar dtl = 0.5;
+    Scalar sum = 0.;
     Mesh::Edge e;
-    Mesh::Vertex ver ;
-    Point p ;
+    Mesh::Vertex ver;
+    Point p;
 
     //init vertices
     v_begin = mesh_.vertices_begin();
     v_end = mesh_.vertices_end();
 
     //iterate over all mesh vertices in order to fill the matrices
-    for( v_it = v_begin ; v_it != v_end; ++ v_it )
-    {
+    for(v_it = v_begin; v_it != v_end; ++ v_it) {
 
         //allocate the halfedge circulator
         Mesh::Vertex v = *v_it;
         Mesh::Halfedge_around_vertex_circulator vc, vc_end;
+        sum = 0;
 
 
         //begin and end
@@ -202,23 +192,22 @@ void MeshProcessing::implicit_smoothing(const double timestep) {
         vc_end = vc;
 
         //center position
-        p = mesh_.position(*v_it);
+        p = mesh_.position(v);
 
         // Fill matrix B (if i understood it correctly)
-//        B(v_it,0) = 1/area_inv[*v_it]*p[0] ;
-//        B(v_it,1) = 1/area_inv[*v_it]*p[1] ;
-//        B(v_it,2) = 1/area_inv[*v_it]*p[2] ;
-
+        B(v.idx(), 0) = area_inv[v] * p[0];
+        B(v.idx(), 1) = area_inv[v] * p[1];
+        B(v.idx(), 2) = area_inv[v] * p[2];
 
         //loop around vertex v_it (cf slide 40 SM tuto) to get the necessary values to fill 'M'
         do{
             e = mesh_.edge(*vc);
             ver = mesh_.to_vertex(*vc) ;
             sum += cotan[e] ; // Sum used to obtain M(i,i)
-//            triplets.push_back(Eigen::Triplet<double> (v_it,ver, (1/area_inv[*v_it] - dtl * cotan[e]))); // Elements of A(i,j) = (D^-1 - dtl*M(i,j))
-        }while(++vc != vc_end);
-        double diag = 1/area_inv[*v_it] + dtl * sum ; // Element A(i,i)
-//       triplets.push_back(Eigen::Triplet<double> (v_it,v_it,diag)); // Element A(i,i)
+            triplets.push_back(Eigen::Triplet<double>(v.idx(), ver.idx(), (area_inv[v] - dtl * cotan[e]))); // Elements of A(i,j) = (D^-1 - dtl*M(i,j))
+        } while(++vc != vc_end);
+        double diag = area_inv[v] + dtl * sum ; // Element A(i,i)
+        triplets.push_back(Eigen::Triplet<double>(v.idx(),v.idx(),diag)); // Element A(i,i)
     }
 
     // ========================================================================
@@ -261,7 +250,7 @@ void MeshProcessing::uniform_laplacian_enhance_feature(const unsigned int iterat
 // EXERCISE 3.2
 // ========================================================================
 void MeshProcessing::cotan_laplacian_enhance_feature(const unsigned int iterations,
-                                                      const unsigned int coefficient) {
+                                                     const unsigned int coefficient) {
 
     // ------------- IMPLEMENT HERE ---------
     // Feature enhancement using the normalized cotan Laplacian operator:
@@ -544,34 +533,34 @@ void MeshProcessing::compute_mesh_properties() {
     j = 0;
     for (auto v: mesh_.vertices()) {
         points_.col(j) << mesh_.position(v).x,
-                          mesh_.position(v).y,
-                          mesh_.position(v).z;
+                mesh_.position(v).y,
+                mesh_.position(v).z;
 
         normals_.col(j) << vertex_normal[v].x,
-                           vertex_normal[v].y,
-                           vertex_normal[v].z;
+                vertex_normal[v].y,
+                vertex_normal[v].z;
 
         color_valence_.col(j) << v_color_valence[v].x,
-                                 v_color_valence[v].y,
-                                 v_color_valence[v].z;
+                v_color_valence[v].y,
+                v_color_valence[v].z;
 
         color_unicurvature_.col(j) << v_color_unicurvature[v].x,
-                                      v_color_unicurvature[v].y,
-                                      v_color_unicurvature[v].z;
+                v_color_unicurvature[v].y,
+                v_color_unicurvature[v].z;
 
         color_curvature_.col(j) << v_color_curvature[v].x,
-                                   v_color_curvature[v].y,
-                                   v_color_curvature[v].z;
+                v_color_curvature[v].y,
+                v_color_curvature[v].z;
 
         color_gaussian_curv_.col(j) << v_color_gaussian_curv[v].x,
-                                       v_color_gaussian_curv[v].y,
-                                       v_color_gaussian_curv[v].z;
+                v_color_gaussian_curv[v].y,
+                v_color_gaussian_curv[v].z;
         ++j;
     }
 }
 
 void MeshProcessing::color_coding(Mesh::Vertex_property<Scalar> prop, Mesh *mesh,
-                  Mesh::Vertex_property<Color> color_prop, int bound) {
+                                  Mesh::Vertex_property<Color> color_prop, int bound) {
     // Get the value array
     std::vector<Scalar> values = prop.vector();
 
@@ -589,7 +578,7 @@ void MeshProcessing::color_coding(Mesh::Vertex_property<Scalar> prop, Mesh *mesh
 }
 
 void MeshProcessing::set_color(Mesh::Vertex v, const Color& col,
-               Mesh::Vertex_property<Color> color_prop)
+                               Mesh::Vertex_property<Color> color_prop)
 {
     color_prop[v] = col;
 }

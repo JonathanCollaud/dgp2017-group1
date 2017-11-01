@@ -162,13 +162,12 @@ void MeshProcessing::implicit_smoothing(const double timestep) {
 
     // ========================================================================
     // TODO: IMPLEMENTATION FOR EXERCISE 2 HERE
-    // MAIN PROBLEM IS TO FIND THE INDEX OF EACH VERTEX !!!
 
     //allocation of iterating vertices, begin, end (cf slide 35 SM tuto)
     Mesh::Vertex_iterator v_it, v_begin, v_end;
 
     // some variable declarations
-    Scalar dtl = 0.5;
+    Scalar dtl = 0.2;
     Scalar sum = 0.;
     Mesh::Edge e;
     Mesh::Vertex ver;
@@ -195,18 +194,18 @@ void MeshProcessing::implicit_smoothing(const double timestep) {
         p = mesh_.position(v);
 
         // Fill matrix B (if i understood it correctly)
-        B(v.idx(), 0) = area_inv[v] * p[0];
-        B(v.idx(), 1) = area_inv[v] * p[1];
-        B(v.idx(), 2) = area_inv[v] * p[2];
+        B(v.idx(), 0) = p[0]/area_inv[v];
+        B(v.idx(), 1) = p[1]/area_inv[v];
+        B(v.idx(), 2) = p[2]/area_inv[v];
 
         //loop around vertex v_it (cf slide 40 SM tuto) to get the necessary values to fill 'M'
         do{
             e = mesh_.edge(*vc);
             ver = mesh_.to_vertex(*vc) ;
             sum += cotan[e] ; // Sum used to obtain M(i,i)
-            triplets.push_back(Eigen::Triplet<double>(v.idx(), ver.idx(), (area_inv[v] - dtl * cotan[e]))); // Elements of A(i,j) = (D^-1 - dtl*M(i,j))
+            triplets.push_back(Eigen::Triplet<double>(v.idx(), ver.idx(), (-dtl * cotan[e]))); // Elements of A(i,j) = (- dtl*M(i,j))
         } while(++vc != vc_end);
-        double diag = area_inv[v] + dtl * sum ; // Element A(i,i)
+        double diag = 1/area_inv[v] - dtl * -sum ; // Element A(i,i) = (D^-1 - dtl*M(i,i)), M(i,i) = -sum(cotan)
         triplets.push_back(Eigen::Triplet<double>(v.idx(),v.idx(),diag)); // Element A(i,i)
     }
 
@@ -244,6 +243,56 @@ void MeshProcessing::uniform_laplacian_enhance_feature(const unsigned int iterat
     // 2) update the vertex positions according to the difference between the original and the smoothed mesh,
     //    using enhancement_coef as the value of alpha in the feature enhancement formula
     // ------------- IMPLEMENT HERE ---------
+
+    const int n = mesh_.n_vertices(); // number of points
+
+    Mesh::Vertex_iterator v_it, v_begin, v_end;
+
+    //init vertices
+    v_begin = mesh_.vertices_begin();
+    v_end = mesh_.vertices_end();
+
+    // get vertex position before smooting
+    auto p_in = mesh_.vertex_property<Point>("v:point");
+
+    for (int i = 0; i < n; ++i) {
+        Mesh::Vertex v(i);
+        for (int dim = 0; dim < 3; ++dim) {
+            Point p = mesh_.position(v) ;
+            p_in[v][dim] = p[dim] ; // position before smooting p_in
+        }
+    }
+
+    // Perform the uniform smoothing
+    MeshProcessing::uniform_smooth(iterations);
+
+
+    // get vertex position after smooting
+    auto p_out = mesh_.vertex_property<Point>("v:point");
+
+    for (int i = 0; i < n; ++i) {
+        Mesh::Vertex v(i);
+        for (int dim = 0; dim < 3; ++dim) {
+            Point p = mesh_.position(v) ;
+            p_out[v][dim] = p[dim] ; // position after smoothing p_out
+        }
+    }
+
+    // Calculate new positions
+    auto points = mesh_.vertex_property<Point>("v:point");
+    for (int i = 0; i < n; ++i) {
+        Mesh::Vertex v(i);
+        for (int dim = 0; dim < 3; ++dim) {
+            points[v][dim] = p_out[v][dim] + coefficient * (p_in[v][dim] -p_out[v][dim]);
+           cout << (p_in[v][dim] -p_out[v][dim]) << endl ; // pas de différence entre p_out et p_in
+            // mesh_.position(*v) = points[*v];
+        }
+    }
+
+    //iterating a last time to change de mesh positions -> pas sûre qu'on en ait besoin mais vu que ça marchais pas j'ai essayé de tous séparer
+    for(v_it = v_begin ; v_it != v_end; ++ v_it ){
+        mesh_.position(*v_it) = points[*v_it];
+    }
 }
 
 // ======================================================================

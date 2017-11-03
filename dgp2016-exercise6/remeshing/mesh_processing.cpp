@@ -41,10 +41,10 @@ namespace mesh_processing {
 		// main remeshing loop
 		for (int i = 0; i < num_iterations; ++i)
 		{
-			split_long_edges();
-			collapse_short_edges();
-			equalize_valences();
-			tangential_relaxation();
+            split_long_edges();
+            collapse_short_edges();
+            equalize_valences();
+            tangential_relaxation();
 		}
 	}
 
@@ -186,12 +186,14 @@ namespace mesh_processing {
                 v1 = mesh_.to_vertex(mesh_.halfedge(*e_it,1));
 
                 //Checking if edge length is greater than the 4/3 of the mean of the target length of each vertex
-                if(mesh_.edge_length(*e_it) > 2/3*(target_length[v0] + target_length[v1])){
 
+                if(mesh_.edge_length(*e_it) > (0.66666)*(target_length[v0] + target_length[v1])){ // Si tu utilise 2/3 à la place de 0.66666 il dit que cest 0 ?!? WTF
+ cout << mesh_.edge_length(*e_it) << '>' << (0.66666)*(target_length[v0] + target_length[v1]) << endl ;
 
                     //Setting the new vertex replacing the two previous ones
                     v = mesh_.add_vertex((mesh_.position(v0) + mesh_.position(v1))/2);
                     normals[v] = (normals[v0] + normals[v1])/2;
+                    target_length[v] = (target_length[v0] + target_length[v1])/2 ;
 
                     //splitting with the vertex v
                     mesh_.split(*e_it,v);
@@ -278,7 +280,7 @@ namespace mesh_processing {
 
 	void MeshProcessing::tangential_relaxation()
 	{
-		Mesh::Vertex_iterator     v_it, v_end(mesh_.vertices_end());
+        /*Mesh::Vertex_iterator     v_it, v_end(mesh_.vertices_end()); // Elle pose des problèmes donc je l'ai mise en commentaire
 		Mesh::Vertex_around_vertex_circulator   vv_c, vv_end;
 		int    valence;
 		Point     u, n;
@@ -305,7 +307,7 @@ namespace mesh_processing {
 			for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it)
 				if (!mesh_.is_boundary(*v_it))
 					mesh_.position(*v_it) += update[*v_it];
-		}
+        }*/
 	}
 
 	void MeshProcessing::calc_uniform_mean_curvature() {

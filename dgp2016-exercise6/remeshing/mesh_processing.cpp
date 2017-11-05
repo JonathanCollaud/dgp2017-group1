@@ -187,13 +187,12 @@ void MeshProcessing::split_long_edges()
 
             //Checking if edge length is greater than the 4/3 of the mean of the target length of each vertex
 
-            if(mesh_.edge_length(*e_it) > (2./3.)*(target_length[v0] + target_length[v1])){ // Si tu utilise 2/3 à la place de 0.66666 il dit que cest 0 ?!? WTF
-                cout << mesh_.edge_length(*e_it) << '>' << (2./3.)*(target_length[v0] + target_length[v1]) << endl ;
+            if(mesh_.edge_length(*e_it) > (2./3.)*(target_length[v0] + target_length[v1])){
 
                 //Setting the new vertex replacing the two previous ones
-                v = mesh_.add_vertex((mesh_.position(v0) + mesh_.position(v1))/2);
-                normals[v] = (normals[v0] + normals[v1])/2;
-                target_length[v] = (target_length[v0] + target_length[v1])/2 ;
+                v = mesh_.add_vertex((mesh_.position(v0) + mesh_.position(v1))/2.);
+                normals[v] = (normals[v0] + normals[v1])/2.;
+                target_length[v] = (target_length[v0] + target_length[v1])/2.;
 
                 //splitting with the vertex v
                 mesh_.split(*e_it,v);
@@ -235,29 +234,27 @@ void MeshProcessing::collapse_short_edges()
                 // Leave the loop running until no collapse has been done (use the finished variable)
                 // ------------- IMPLEMENT HERE ---------
 
-                //Taking the two vertices of the edge e_it
+                //Taking halfedges and vertices of the edge e_it
                 h01 = mesh_.halfedge(*e_it,0);
                 h10 = mesh_.halfedge(*e_it,1);
                 v0 = mesh_.to_vertex(h01);
                 v1 = mesh_.to_vertex(h10);
 
-                //Checking if edge length is greater than the 4/5 of the mean of the target length of each vertex
-
-                if(mesh_.edge_length(*e_it) < (4./5.)*(target_length[v0] + target_length[v1])){
-                    if (!mesh_.is_boundary(v0) && mesh_.is_collapse_ok(h01)){
+                // Checking if edge length is greater than the 4/5 of the mean of the target length of each vertex
+                if(mesh_.edge_length(*e_it) < (2./5.) * (target_length[v0] + target_length[v1])){
+                    if (mesh_.is_collapse_ok(h01) && mesh_.is_collapse_ok(h10)) {
+                        if (mesh_.valence(v0) < mesh_.valence(v1)) {
+                            mesh_.collapse(h01);
+                        } else {
+                            mesh_.collapse(h01);
+                        }
+                    } else if (mesh_.is_collapse_ok(h01)){
                         mesh_.collapse(h01);
-                        mesh_.valence(v0);
-
-                        //to continue the work, if no collapsing finished will stay true
-                        finished = false;
-                    }
-                    if (!mesh_.is_boundary(v1) && mesh_.is_collapse_ok(h10)){
+                    } else if (mesh_.is_collapse_ok(h10)){
                         mesh_.collapse(h10);
-
-                        //to continue the work, if no collapsing finished will stay true
-                        finished = false;
                     }
                 }
+                finished = false;
             }
         }
     }

@@ -41,10 +41,10 @@ void MeshProcessing::remesh(const REMESHING_TYPE &remeshing_type,
     // main remeshing loop
     for (int i = 0; i < num_iterations; ++i)
     {
-        split_long_edges();
+        //split_long_edges();
         collapse_short_edges();
-        equalize_valences();
-        tangential_relaxation();
+        //equalize_valences();
+        //tangential_relaxation();
     }
 }
 
@@ -82,7 +82,7 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
         Mesh::Vertex_property<Scalar>  v_curvature = mesh_.vertex_property<Scalar>("v:curvature", 0.0f);
         Mesh::Vertex_property<Scalar> v_gauss_curvature = mesh_.vertex_property<Scalar>("v:gauss_curvature", 0.0f);
 
-        Scalar H, K , k_max;
+        Scalar H, K, k_max;
 
         // Calculate mean and gauss curvatures
         MeshProcessing::calc_mean_curvature() ;
@@ -104,18 +104,18 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
         }
 
         //-2-// smooth desired length (used the same scheme as the uniform smoothing performed on mesh but here is performed on lengths)
-
         Scalar dtl = 0.2;
         Mesh::Vertex_iterator v_it, v_begin, v_end;
         Mesh::Vertex_around_vertex_circulator   vv_c, vv_end;
-        Scalar             laplace(0.0);
+        long             laplace(0.0);
         Scalar              n;
 
         //init vertices
         v_begin = mesh_.vertices_begin();
         v_end = mesh_.vertices_end();
 
-
+// Le problème provient de cette boucle !!!!!!! prob le calcul de la new target_length
+// tous ce que je met sans indentation est utilisé pour le déboggage et ne concerne pas réellement la partie importante du code.
         for (int i = 0; i < 5; i++) {
             //iterate over mesh vertices to compute new target_length with the uniform smoothing formula
             for(v_it = v_begin ; v_it != v_end; ++ v_it )
@@ -124,33 +124,49 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
                     vv_c = mesh_.vertices(*v_it);
                     vv_end = vv_c;
                     n = 0;
+                    laplace = 0 ;
                     do {
+/*if(target_length[*v_it] > 1000 || target_length[*v_it] < 0.1 )
+{
+    cout<<target_length[*v_it] << endl ;
+}*/
                         laplace += (target_length[*vv_c] - target_length[*v_it]);
+//cout << laplace << '=' << target_length[*vv_c] << '-' << target_length[*v_it] << endl ;
                         ++n;
                     } while(++vv_c != vv_end);
-
+//if(n==0){n=1;} // peut être que le nan arrive d'une division par zéro ? ... résout pas les problèmes ...
                     laplace /= n;
+
+ //cout << laplace << endl  ;
+if(laplace > 200){laplace = 200 ;} // tentative de limiter l'explosion du laplace
+if(laplace < -200){laplace = -200 ;}
+//if(isnan(laplace)){laplace = 0;} // pk elle marche pas cette fonction ?!? on pourrait semi-corriger en emplacant le nan par une vrai valeur pour éviter l'explosion ...
                     target_new_length[*v_it] = target_length[*v_it] + dtl * laplace;
+//cout << target_new_length[*v_it] << '=' << target_length[*v_it]<< '+' << dtl << '*' << laplace << endl ;
                 }
             }
             //iterating a second time to put new length in target_length
             for(v_it = v_begin ; v_it != v_end; ++ v_it ){
                 target_length[*v_it] = target_new_length[*v_it];
+//cout << target_length[*v_it] << endl ;
             }
         }
 
         //-3-// rescale desired length
-        Scalar sum = 0 ;
+        long sum = 0 ;
         Scalar mean ,ratio ;
         const int N = mesh_.n_vertices();
 
         for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it) { // loop over all to obtain the mean finally
             sum = sum + target_length[*v_it] ;
         }
+//cout << sum << '-' << N << endl ;
         mean = sum/N ; // calculate mean length
         ratio = TARGET_LENGTH/mean ; // calculate the ratio used to rescale all length with the right amount
+//cout << mean << 'z' << ratio << endl ;
         for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it) {
             target_length[*v_it]= target_length[*v_it]*ratio ; // rescale all length
+//cout << target_length[*v_it] << endl ;
         }
     }
 }
@@ -292,6 +308,7 @@ void MeshProcessing::equalize_valences()
                 //  If valence deviance is decreased and flip is possible, flip the vertex
                 //  Leave the loop running until no collapse has been done (use the finished variable)
                 // ------------- IMPLEMENT HERE ---------
+                mesh_.flip();
             }
         }
     }

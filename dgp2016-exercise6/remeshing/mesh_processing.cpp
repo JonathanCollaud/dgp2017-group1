@@ -41,10 +41,10 @@ void MeshProcessing::remesh(const REMESHING_TYPE &remeshing_type,
     // main remeshing loop
     for (int i = 0; i < num_iterations; ++i)
     {
-        //split_long_edges();
+        split_long_edges();
         collapse_short_edges();
         //equalize_valences();
-        //tangential_relaxation();
+        tangential_relaxation();
     }
 }
 
@@ -114,8 +114,8 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
         v_begin = mesh_.vertices_begin();
         v_end = mesh_.vertices_end();
 
-// Le problème provient de cette boucle !!!!!!! prob le calcul de la new target_length
-// tous ce que je met sans indentation est utilisé pour le déboggage et ne concerne pas réellement la partie importante du code.
+        // Le problème provient de cette boucle !!!!!!! prob le calcul de la new target_length
+        // tous ce que je met sans indentation est utilisé pour le déboggage et ne concerne pas réellement la partie importante du code.
         for (int i = 0; i < 5; i++) {
             //iterate over mesh vertices to compute new target_length with the uniform smoothing formula
             for(v_it = v_begin ; v_it != v_end; ++ v_it )
@@ -126,29 +126,29 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
                     n = 0;
                     laplace = 0 ;
                     do {
-/*if(target_length[*v_it] > 1000 || target_length[*v_it] < 0.1 )
+                        /*if(target_length[*v_it] > 1000 || target_length[*v_it] < 0.1 )
 {
     cout<<target_length[*v_it] << endl ;
 }*/
                         laplace += (target_length[*vv_c] - target_length[*v_it]);
-//cout << laplace << '=' << target_length[*vv_c] << '-' << target_length[*v_it] << endl ;
+                        //cout << laplace << '=' << target_length[*vv_c] << '-' << target_length[*v_it] << endl ;
                         ++n;
                     } while(++vv_c != vv_end);
-//if(n==0){n=1;} // peut être que le nan arrive d'une division par zéro ? ... résout pas les problèmes ...
+                    //if(n==0){n=1;} // peut être que le nan arrive d'une division par zéro ? ... résout pas les problèmes ...
                     laplace /= n;
 
- //cout << laplace << endl  ;
-if(laplace > 200){laplace = 200 ;} // tentative de limiter l'explosion du laplace
-if(laplace < -200){laplace = -200 ;}
-//if(isnan(laplace)){laplace = 0;} // pk elle marche pas cette fonction ?!? on pourrait semi-corriger en emplacant le nan par une vrai valeur pour éviter l'explosion ...
+                    //cout << laplace << endl  ;
+                    if(laplace > 200){laplace = 200 ;} // tentative de limiter l'explosion du laplace
+                    if(laplace < -200){laplace = -200 ;}
+                    //if(isnan(laplace)){laplace = 0;} // pk elle marche pas cette fonction ?!? on pourrait semi-corriger en emplacant le nan par une vrai valeur pour éviter l'explosion ...
                     target_new_length[*v_it] = target_length[*v_it] + dtl * laplace;
-//cout << target_new_length[*v_it] << '=' << target_length[*v_it]<< '+' << dtl << '*' << laplace << endl ;
+                    //cout << target_new_length[*v_it] << '=' << target_length[*v_it]<< '+' << dtl << '*' << laplace << endl ;
                 }
             }
             //iterating a second time to put new length in target_length
             for(v_it = v_begin ; v_it != v_end; ++ v_it ){
                 target_length[*v_it] = target_new_length[*v_it];
-//cout << target_length[*v_it] << endl ;
+                //cout << target_length[*v_it] << endl ;
             }
         }
 
@@ -160,13 +160,13 @@ if(laplace < -200){laplace = -200 ;}
         for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it) { // loop over all to obtain the mean finally
             sum = sum + target_length[*v_it] ;
         }
-//cout << sum << '-' << N << endl ;
+        //cout << sum << '-' << N << endl ;
         mean = sum/N ; // calculate mean length
         ratio = TARGET_LENGTH/mean ; // calculate the ratio used to rescale all length with the right amount
-//cout << mean << 'z' << ratio << endl ;
+        //cout << mean << 'z' << ratio << endl ;
         for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it) {
             target_length[*v_it]= target_length[*v_it]*ratio ; // rescale all length
-//cout << target_length[*v_it] << endl ;
+            //cout << target_length[*v_it] << endl ;
         }
     }
 }
@@ -258,9 +258,11 @@ void MeshProcessing::collapse_short_edges()
 
                 // Checking if edge length is greater than the 4/5 of the mean of the target length of each vertex
                 if(mesh_.edge_length(*e_it) < (2./5.) * (target_length[v0] + target_length[v1])){
-                    if (mesh_.is_collapse_ok(h01) && mesh_.is_collapse_ok(h10)) {
+                    finished = false;
+                    if (mesh_.is_collapse_ok(h01) && mesh_.is_collapse_ok(h10) &&
+                            !mesh_.is_boundary(v0) && !mesh_.is_boundary(v1)) {
                         if (mesh_.valence(v0) < mesh_.valence(v1)) {
-                            mesh_.collapse(h01);
+                            mesh_.collapse(h10);
                         } else {
                             mesh_.collapse(h01);
                         }
@@ -268,9 +270,10 @@ void MeshProcessing::collapse_short_edges()
                         mesh_.collapse(h01);
                     } else if (mesh_.is_collapse_ok(h10)){
                         mesh_.collapse(h10);
+                    } else {
+                        finished = true;
                     }
                 }
-                finished = false;
             }
         }
     }
@@ -308,7 +311,7 @@ void MeshProcessing::equalize_valences()
                 //  If valence deviance is decreased and flip is possible, flip the vertex
                 //  Leave the loop running until no collapse has been done (use the finished variable)
                 // ------------- IMPLEMENT HERE ---------
-                mesh_.flip();
+                //mesh_.flip(*e_it);
             }
         }
     }
@@ -318,34 +321,49 @@ void MeshProcessing::equalize_valences()
 
 void MeshProcessing::tangential_relaxation()
 {
-    /*Mesh::Vertex_iterator     v_it, v_end(mesh_.vertices_end()); // Elle pose des problèmes donc je l'ai mise en commentaire
-        Mesh::Vertex_around_vertex_circulator   vv_c, vv_end;
-        int    valence;
-        Point     u, n;
-        Point     laplace;
+    Mesh::Vertex_iterator     v_it, v_end(mesh_.vertices_end()); // Elle pose des problèmes donc je l'ai mise en commentaire
+    Mesh::Vertex_around_vertex_circulator   vv_c, vv_end;
+    int    valence;
+    Point     u, n;
+    Point     laplace;
+    Scalar lambda = 0.01;
 
-        Mesh::Vertex_property<Point> normals = mesh_.vertex_property<Point>("v:normal");
-        Mesh::Vertex_property<Point> update = mesh_.vertex_property<Point>("v:update");
+    Mesh::Vertex_property<Point> normals = mesh_.vertex_property<Point>("v:normal");
+    Mesh::Vertex_property<Point> update = mesh_.vertex_property<Point>("v:update");
 
-        // smooth
-        for (int iters = 0; iters < 10; ++iters)
+    // smooth
+    for (int iters = 0; iters < 10; ++iters)
+    {
+        for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it)
         {
-            for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it)
+            if (!mesh_.is_boundary(*v_it))
             {
-                if (!mesh_.is_boundary(*v_it))
-                {
-                    // ------------- IMPLEMENT HERE ---------
-                    //  Compute uniform laplacian curvature approximation vector
-                    //  Compute the tangential component of the laplacian vector and move the vertex
-                    //  Store smoothed vertex location in the update vertex property.
-                    // ------------- IMPLEMENT HERE ---------
-                }
-            }
+                // ------------- IMPLEMENT HERE ---------
+                //  Compute uniform laplacian curvature approximation vector
+                //  Compute the tangential component of the laplacian vector and move the vertex
+                //  Store smoothed vertex location in the update vertex property.
+                // ------------- IMPLEMENT HERE ---------
+                vv_c = mesh_.vertices(*v_it);
+                vv_end = vv_c;
 
-            for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it)
-                if (!mesh_.is_boundary(*v_it))
-                    mesh_.position(*v_it) += update[*v_it];
-        }*/
+                valence = mesh_.valence(*v_it);
+                laplace = Point(0);
+
+                do {
+                    laplace += mesh_.position(*vv_c);
+                } while(++vv_c != vv_end);
+                laplace /= valence;
+
+                n = mesh_.compute_vertex_normal(*v_it);
+                normals[*v_it] = n;
+                update[*v_it] = lambda * (laplace - mesh_.position(*v_it));
+            }
+        }
+
+        for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it)
+            if (!mesh_.is_boundary(*v_it))
+                mesh_.position(*v_it) += update[*v_it];
+    }
 }
 
 void MeshProcessing::calc_uniform_mean_curvature() {

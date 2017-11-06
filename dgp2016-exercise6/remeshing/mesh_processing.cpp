@@ -49,7 +49,7 @@ void MeshProcessing::remesh(const REMESHING_TYPE &remeshing_type,
 }
 
 void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
-    Mesh::Vertex_iterator        v_it, v_end(mesh_.vertices_end());
+    Mesh::Vertex_iterator        v_it,v_begin, v_end(mesh_.vertices_end());
     Mesh::Vertex_around_vertex_circulator  vv_c, vv_end;
     Scalar                   length;
     Scalar                   mean_length;
@@ -61,7 +61,7 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
     Mesh::Vertex_property<Scalar> target_length = mesh_.vertex_property<Scalar>("v:length", 0);
     Mesh::Vertex_property<Scalar> target_new_length = mesh_.vertex_property<Scalar>("v:newlength", 0);
 
-    const float TARGET_LENGTH = 2.0;
+    const float TARGET_LENGTH = 3.0;
 
     if (remeshing_type == AVERAGE)
     {
@@ -78,11 +78,7 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
         // Rescale the property target_new_length such that it's mean equals the user specified TARGET_LENGTH
         // ------------- IMPLEMENT HERE ---------
 
-        // Basic definitions
-        Mesh::Vertex_property<Scalar>  v_curvature = mesh_.vertex_property<Scalar>("v:curvature", 0.0f);
-        Mesh::Vertex_property<Scalar> v_gauss_curvature = mesh_.vertex_property<Scalar>("v:gauss_curvature", 0.0f);
-
-        Scalar H, K, k_max;
+        Scalar k_max;
 
         // Calculate mean and gauss curvatures
         MeshProcessing::calc_mean_curvature() ;
@@ -91,31 +87,29 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
         //-1-// calculate desired adaptative length
         for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it) {
 
-            // Get the curvatures
-            H = v_curvature[*v_it] ;
-            K = v_gauss_curvature[*v_it] ;
-            k_max = H + sqrt(pow(H,2) - K) ; // Calculate k_max
-
-            length = TARGET_LENGTH; // In case we are on a boundary set the basic length // ou = 1 ??? elle était a 1 à la base mais me semble pas être utile ...
             if (!mesh_.is_boundary(*v_it)) {
+                // Get the curvatures
+                H = curvature[*v_it] ;
+                K = gauss_curvature[*v_it] ;
+                k_max = H + sqrt(abs(pow(H,2) - K)) ; // Calculate k_max
                 length = TARGET_LENGTH/k_max ; // adapt the target length
+            }else
+            {
+                length = TARGET_LENGTH; // In case we are on a boundary set the basic target length
             }
             target_length[*v_it] = length;
+
         }
 
         //-2-// smooth desired length (used the same scheme as the uniform smoothing performed on mesh but here is performed on lengths)
         Scalar dtl = 0.2;
-        Mesh::Vertex_iterator v_it, v_begin, v_end;
-        Mesh::Vertex_around_vertex_circulator   vv_c, vv_end;
-        long             laplace(0.0);
-        Scalar              n;
+        Scalar laplace(0.0);
+        Scalar n;
 
-        //init vertices
+        //initialize vertices
         v_begin = mesh_.vertices_begin();
         v_end = mesh_.vertices_end();
 
-        // Le problème provient de cette boucle !!!!!!! prob le calcul de la new target_length
-        // tous ce que je met sans indentation est utilisé pour le déboggage et ne concerne pas réellement la partie importante du code.
         for (int i = 0; i < 5; i++) {
             //iterate over mesh vertices to compute new target_length with the uniform smoothing formula
             for(v_it = v_begin ; v_it != v_end; ++ v_it )
@@ -125,48 +119,34 @@ void MeshProcessing::calc_target_length(const REMESHING_TYPE &remeshing_type) {
                     vv_end = vv_c;
                     n = 0;
                     laplace = 0 ;
-                    do {
-                        /*if(target_length[*v_it] > 1000 || target_length[*v_it] < 0.1 )
-{
-    cout<<target_length[*v_it] << endl ;
-}*/
+                    do { // sum the difference of all neighbours
                         laplace += (target_length[*vv_c] - target_length[*v_it]);
-                        //cout << laplace << '=' << target_length[*vv_c] << '-' << target_length[*v_it] << endl ;
                         ++n;
                     } while(++vv_c != vv_end);
-                    //if(n==0){n=1;} // peut être que le nan arrive d'une division par zéro ? ... résout pas les problèmes ...
-                    laplace /= n;
-
-                    //cout << laplace << endl  ;
-                    if(laplace > 200){laplace = 200 ;} // tentative de limiter l'explosion du laplace
-                    if(laplace < -200){laplace = -200 ;}
-                    //if(isnan(laplace)){laplace = 0;} // pk elle marche pas cette fonction ?!? on pourrait semi-corriger en emplacant le nan par une vrai valeur pour éviter l'explosion ...
-                    target_new_length[*v_it] = target_length[*v_it] + dtl * laplace;
-                    //cout << target_new_length[*v_it] << '=' << target_length[*v_it]<< '+' << dtl << '*' << laplace << endl ;
+                    laplace /= n; // get the mean of the difference
+                    target_new_length[*v_it] = target_length[*v_it] + dtl * laplace; // Uniform smoothing algorithm
+                }else{
+                    target_new_length[*v_it] = target_length[*v_it] ; // on boundary keep the basic target length
                 }
             }
-            //iterating a second time to put new length in target_length
+            //Iterating a second time to put new length in target_length
             for(v_it = v_begin ; v_it != v_end; ++ v_it ){
                 target_length[*v_it] = target_new_length[*v_it];
-                //cout << target_length[*v_it] << endl ;
             }
         }
 
         //-3-// rescale desired length
-        long sum = 0 ;
-        Scalar mean ,ratio ;
+        Scalar sum = 0 ;
+        Scalar ratio ;
         const int N = mesh_.n_vertices();
 
         for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it) { // loop over all to obtain the mean finally
             sum = sum + target_length[*v_it] ;
         }
-        //cout << sum << '-' << N << endl ;
-        mean = sum/N ; // calculate mean length
-        ratio = TARGET_LENGTH/mean ; // calculate the ratio used to rescale all length with the right amount
-        //cout << mean << 'z' << ratio << endl ;
+        mean_length = sum/N ; // calculate mean length
+        ratio = TARGET_LENGTH/mean_length ; // calculate the ratio used to rescale all length with the right amount
         for (v_it = mesh_.vertices_begin(); v_it != v_end; ++v_it) {
             target_length[*v_it]= target_length[*v_it]*ratio ; // rescale all length
-            //cout << target_length[*v_it] << endl ;
         }
     }
 }

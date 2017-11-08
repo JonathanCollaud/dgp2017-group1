@@ -41,10 +41,11 @@ namespace mesh_processing {
 		// main remeshing loop
 		for (int i = 0; i < num_iterations; ++i)
 		{
+            // MAIN PROBLEM : SPLIT AND COLLAPSE WORKS WELL ALONE BUT IF WE PUT THEM TOGETHER IT GENERATE A LOT OF SHITS !
             split_long_edges(); // Works alone, with average and with curvature (do nothing with curvature)
             collapse_short_edges(); // Works alone for average but some bugs for curvature
-            equalize_valences(); // The worst one, sry Planck :(
-            tangential_relaxation(); // Will it save the rest?
+            //equalize_valences(); // Problem corrected in 99% of the cases but still 1% remaining
+            //tangential_relaxation(); // Works fine
 		}
 	}
 
@@ -287,8 +288,9 @@ namespace mesh_processing {
 	void MeshProcessing::equalize_valences()
 	{
 		Mesh::Edge_iterator     e_it, e_end(mesh_.edges_end());
-		Mesh::Vertex   v0, v1, v2, v3;
-		Mesh::Halfedge   h;
+        Mesh::Vertex    v0, v1, v2, v3;
+        Mesh::Halfedge  h0, h1, h2, h3 ,h0_ , h1_ ;
+        Mesh::Face      f0_, f1_ ;
 		int             val0, val1, val2, val3;
 		int             val_opt0, val_opt1, val_opt2, val_opt3;
 		int             ve0, ve1, ve2, ve3, ve_before, ve_after;
@@ -316,15 +318,16 @@ namespace mesh_processing {
 
                   // defining the four vertices in the flip process
                   // The originally connected vertices are v0 and v1
-                  h = mesh_.halfedge(*e_it,0);  // h0 connects v1 to v0
-                  v0 = mesh_.to_vertex(h);      // v0
-                  h = mesh_.next_halfedge(h);   // h2 connects v0 to v2
-                  v2 = mesh_.to_vertex(h);      // v2
+                  h0 = mesh_.halfedge(*e_it,0);  // h0 connects v1 to v0
+                  v0 = mesh_.to_vertex(h0);      // v0
+                  h2 = mesh_.next_halfedge(h0);   // h2 connects v0 to v2
+                  v2 = mesh_.to_vertex(h2);      // v2
 
-                  h = mesh_.halfedge(*e_it,1);  // h1 connects v0 to v1
-                  v1 = mesh_.to_vertex(h);      // v1
-                  h = mesh_.next_halfedge(h);   // h3 connects v1 to v3
-                  v3 = mesh_.to_vertex(h);      // v3
+                  h1 = mesh_.halfedge(*e_it,1);  // h1 connects v0 to v1
+                  v1 = mesh_.to_vertex(h1);      // v1
+                  h3 = mesh_.next_halfedge(h1);   // h3 connects v1 to v3
+                  v3 = mesh_.to_vertex(h3);      // v3
+
 
                   //the actual valences
                   val0 = mesh_.valence(v0);
@@ -368,7 +371,21 @@ namespace mesh_processing {
                   if( ve_after < ve_before && mesh_.is_flip_ok(*e_it))
                   {
                       mesh_.flip(*e_it);
+
+                      // check that the angle between the two plans is big enough after the flip
+                      h0_ = mesh_.halfedge(*e_it,0);
+                      h1_ = mesh_.halfedge(*e_it,1);
+                      f0_ = mesh_.face(h0_) ;
+                      f1_ = mesh_.face(h1_) ;
+                      auto n0 = mesh_.compute_face_normal(f0_) ;
+                      auto n1 = mesh_.compute_face_normal(f1_) ;
+                      Scalar theta = acos(dot(n0,n1)/(norm(n0)*norm(n1))) ;
                       finished = false;
+                      if(theta > 0.5) { // otherwise reflip
+                          mesh_.flip(*e_it);
+                          --j ;
+                          finished = true;
+                      }
                       ++j;
                   }
 				}

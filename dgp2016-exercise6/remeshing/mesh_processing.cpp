@@ -166,7 +166,7 @@ namespace mesh_processing {
 
 		for (finished = false, i = 0; !finished && i < 100; ++i)
 		{
-            j=1;
+            		j=0;
 			finished = true;
 			// ------------- IMPLEMENT HERE ---------
 			// INSERT CODE:
@@ -210,7 +210,7 @@ namespace mesh_processing {
                 j++; //DEBUGGING
                 }
             }
-            cout << j << " edges splitted on iteration " << i << endl; //DEBUGGING
+            cout << j << " edge(s) splitted on iteration " << i << endl; //DEBUGGING
 		}
 
         cout << "==================================" << endl;//DEBUGGING
@@ -233,12 +233,12 @@ namespace mesh_processing {
         for (finished = false, i = 0; !finished && i < 100; ++i)
         {
             finished = true;
+	    j = 0;
 
             for (e_it = mesh_.edges_begin(); e_it != e_end; ++e_it)
             {
                 if (!mesh_.is_deleted(*e_it)) // might already be deleted
-                {
-                    j = 1;
+		{               
                     // ------------- IMPLEMENT HERE ---------
                     // INSERT CODE:
                     // Compute the desired length as the mean between the property vtargetlength_ of two vertices of the edge
@@ -276,7 +276,7 @@ namespace mesh_processing {
                     }
                 }
             }
-           cout << j << " edges collapsed on iteration " << i << endl; //DEBUGGING
+           cout << j << " edge(s) collapsed on iteration " << i << endl; //DEBUGGING
         }
 
         mesh_.garbage_collection();
@@ -390,7 +390,7 @@ namespace mesh_processing {
                   }
 				}
 			}
-            cout << j << " edges flipped on iteration " << i << endl;
+            cout << j << " edge(s) flipped on iteration " << i << endl;
 		}
 
 		if (i == 100) std::cerr << "flip break\n";

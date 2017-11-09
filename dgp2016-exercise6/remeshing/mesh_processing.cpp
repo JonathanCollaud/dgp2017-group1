@@ -27,7 +27,6 @@ MeshProcessing::MeshProcessing(const string& filename) {
 }
 
 MeshProcessing::~MeshProcessing() {
-    // TODO
 }
 
 void MeshProcessing::remesh(const REMESHING_TYPE &remeshing_type,
@@ -41,11 +40,10 @@ void MeshProcessing::remesh(const REMESHING_TYPE &remeshing_type,
     // main remeshing loop
     for (int i = 0; i < num_iterations; ++i)
     {
-        // MAIN PROBLEM : SPLIT AND COLLAPSE WORKS WELL ALONE BUT IF WE PUT THEM TOGETHER IT GENERATE A LOT OF SHITS !
-        split_long_edges(); // Works alone, with average and with curvature (do nothing with curvature)
-        collapse_short_edges(); // Works alone for average but some bugs for curvature
-        //equalize_valences(); // Problem corrected in 99% of the cases but still 1% remaining
-        //tangential_relaxation(); // Works fine
+        split_long_edges();
+        collapse_short_edges();
+        equalize_valences();
+        tangential_relaxation();
     }
 }
 
@@ -157,16 +155,13 @@ void MeshProcessing::split_long_edges()
     Mesh::Edge_iterator     e_it, e_end(mesh_.edges_end());
     Mesh::Vertex   v0, v1, v;
     bool            finished;
-    int             i,j;
+    int             i;
 
     Mesh::Vertex_property<Point> normals = mesh_.vertex_property<Point>("v:normal");
     Mesh::Vertex_property<Scalar> target_length = mesh_.vertex_property<Scalar>("v:length", 0);
 
-    cout << "Splitting long edges..." << endl;//DEBUGGING
-
     for (finished = false, i = 0; !finished && i < 100; ++i)
     {
-        j=0;
         finished = true;
         // ------------- IMPLEMENT HERE ---------
         // INSERT CODE:
@@ -179,41 +174,30 @@ void MeshProcessing::split_long_edges()
         // ------------- IMPLEMENT HERE ---------
 
         //Loop over all edges on the mesh
-        Scalar target_l = 0; //for clarity
-        Scalar l = 0; // for clarity
         for(e_it = mesh_.edges_begin(); e_it != e_end; ++e_it){
 
             //Taking the vertices of the edge e_it
             v0 = mesh_.to_vertex(mesh_.halfedge(*e_it,0));
             v1 = mesh_.to_vertex(mesh_.halfedge(*e_it,1));
 
-            l = mesh_.edge_length(*e_it);
-            target_l = 0.5 * (target_length[v0] + target_length[v1]);
-
             //Checking if edge length is greater than the 4/3 of the mean of the target length of each vertex
-            if(l > (4./3.) * target_l){
+            if(mesh_.edge_length(*e_it) > (2./3.) * (target_length[v0] + target_length[v1])){
 
                 //Setting the new vertex replacing the two previous ones
                 v = mesh_.add_vertex((mesh_.position(v0) + mesh_.position(v1))/2);
                 normals[v] = (normals[v0] + normals[v1])/2;
                 target_length[v] = (target_length[v0] + target_length[v1])/2;
 
-                //                    cout << "Edge length : " << l << endl;//DEBUGGING
-                //                    cout << "Target length : " << dl << endl;//DEBUGGING
-                //                    cout << "Splitting the "<< j<< "th edge on iterations : " << i << endl; //DEBUGGING
-
                 //splitting with the vertex v
                 mesh_.split(*e_it,v);
 
                 //to continue the work, if no splitting finished will stay true
                 finished = false;
-                j++; //DEBUGGING
             }
         }
-        cout << j << " edge(s) splitted on iteration " << i << endl; //DEBUGGING
     }
 
-    cout << "==================================" << endl;//DEBUGGING
+    mesh_.garbage_collection();
 }
 
 void MeshProcessing::collapse_short_edges()
@@ -222,18 +206,14 @@ void MeshProcessing::collapse_short_edges()
     Mesh::Vertex   v0, v1;
     Mesh::Halfedge  h01, h10;
     bool            finished, b0, b1;
-    int             i,j;
+    int             i;
     bool            hcol01, hcol10;
 
     Mesh::Vertex_property<Scalar> target_length = mesh_.vertex_property<Scalar>("v:length", 0);
 
-    cout << "Collapsing short edges..." << endl;//DEBUGGING
-
-
     for (finished = false, i = 0; !finished && i < 100; ++i)
     {
         finished = true;
-        j = 0;
 
         for (e_it = mesh_.edges_begin(); e_it != e_end; ++e_it)
         {
@@ -255,34 +235,35 @@ void MeshProcessing::collapse_short_edges()
                 h10 = mesh_.halfedge(*e_it,1);
                 v0 = mesh_.to_vertex(h01);
                 v1 = mesh_.to_vertex(h10);
+                hcol01 = mesh_.is_collapse_ok(h01);
+                hcol10 = mesh_.is_collapse_ok(h10);
+                b0 = mesh_.is_boundary(v0);
+                b1 = mesh_.is_boundary(v0);
 
                 // Checking if edge length is greater than the 4/5 of the mean of the target length of each vertex
                 if(mesh_.edge_length(*e_it) < (2./5.) * (target_length[v0] + target_length[v1])){
                     finished = false;
-                    if (mesh_.is_collapse_ok(h01) && mesh_.is_collapse_ok(h10) &&
-                            !mesh_.is_boundary(v0) && !mesh_.is_boundary(v1)) {
+                    if (hcol01 && hcol10 && !b0 && !b1) {
                         if (mesh_.valence(v0) < mesh_.valence(v1)) {
-                            mesh_.collapse(h10); ++j;
+                            mesh_.collapse(h10);
                         } else {
-                            mesh_.collapse(h01); ++j;
+                            mesh_.collapse(h01);
                         }
-                    } else if (mesh_.is_collapse_ok(h01)){
-                        mesh_.collapse(h01); ++j;
-                    } else if (mesh_.is_collapse_ok(h10)){
-                        mesh_.collapse(h10); ++j;
+                    } else if (hcol01 && !b0 ){
+                        mesh_.collapse(h01);
+                    } else if (hcol10 && !b1){
+                        mesh_.collapse(h10);
                     } else {
                         finished = true;
                     }
                 }
             }
         }
-        cout << j << " edge(s) collapsed on iteration " << i << endl; //DEBUGGING
     }
 
     mesh_.garbage_collection();
 
     if (i == 100) std::cerr << "collapse break\n";
-    cout << "==================================" << endl;//DEBUGGING
 }
 
 void MeshProcessing::equalize_valences()
@@ -295,14 +276,12 @@ void MeshProcessing::equalize_valences()
     int             val_opt0, val_opt1, val_opt2, val_opt3;
     int             ve0, ve1, ve2, ve3, ve_before, ve_after;
     bool            finished;
-    int             i,j;
+    int             i;
 
-    cout << "Equalizing valences... " << endl;
     // flip all edges
     for (finished = false, i = 0; !finished && i < 100; ++i)
     {
         finished = true;
-        j = 0; //DEBUGGING
 
         for (e_it = mesh_.edges_begin(); e_it != e_end; ++e_it)
         {
@@ -336,17 +315,10 @@ void MeshProcessing::equalize_valences()
                 val3 = mesh_.valence(v3);
 
                 //the optimal valences (dependant of the boundary)
-                if (!mesh_.is_boundary(v0)){  val_opt0 = 6;   }
-                else                       {  val_opt0 = 4;   }
-
-                if (!mesh_.is_boundary(v1)){  val_opt1 = 6;   }
-                else                       {  val_opt1 = 4;   }
-
-                if (!mesh_.is_boundary(v2)){  val_opt2 = 6;   }
-                else                       {  val_opt2 = 4;   }
-
-                if (!mesh_.is_boundary(v3)){  val_opt3 = 6;   }
-                else                       {  val_opt3 = 4;   }
+                val_opt0 = mesh_.is_boundary(v0) ? 4 : 6;
+                val_opt1 = mesh_.is_boundary(v1) ? 4 : 6;
+                val_opt2 = mesh_.is_boundary(v2) ? 4 : 6;
+                val_opt3 = mesh_.is_boundary(v3) ? 4 : 6;
 
                 //the squared valence excess before the flip
                 ve0 = pow(val0 - val_opt0,2);
@@ -368,7 +340,7 @@ void MeshProcessing::equalize_valences()
 
                 //if the valence excess decreases with the flip
                 //and the flip is possible we flip it
-                if( ve_after < ve_before && mesh_.is_flip_ok(*e_it))
+                if(ve_after < ve_before && mesh_.is_flip_ok(*e_it))
                 {
                     mesh_.flip(*e_it);
 
@@ -383,18 +355,14 @@ void MeshProcessing::equalize_valences()
                     finished = false;
                     if(theta > 0.5) { // otherwise reflip
                         mesh_.flip(*e_it);
-                        --j ;
                         finished = true;
                     }
-                    ++j;
                 }
             }
         }
-        cout << j << " edge(s) flipped on iteration " << i << endl;
     }
 
     if (i == 100) std::cerr << "flip break\n";
-    cout << "==================================" << endl;//DEBUGGING
 }
 
 void MeshProcessing::tangential_relaxation()
@@ -408,8 +376,6 @@ void MeshProcessing::tangential_relaxation()
 
     Mesh::Vertex_property<Point> normals = mesh_.vertex_property<Point>("v:normal");
     Mesh::Vertex_property<Point> update = mesh_.vertex_property<Point>("v:update");
-
-    cout << "Tangential smoothing ... " << endl;
 
     // smooth
     for (int iters = 0; iters < 10; ++iters)
@@ -447,8 +413,6 @@ void MeshProcessing::tangential_relaxation()
             if (!mesh_.is_boundary(*v_it))
                 mesh_.position(*v_it) = update[*v_it];
     }
-    cout << "done" << endl;
-    cout << "==================================" << endl;//DEBUGGING
 }
 
 
@@ -612,43 +576,6 @@ void MeshProcessing::calc_weights() {
     calc_edges_weights();
     calc_vertices_weights();
 }
-
-/*	void MeshProcessing::calc_edges_weights() {
-        auto e_weight = mesh_.edge_property<Scalar>("e:weight", 0.0f);
-        auto points = mesh_.vertex_property<Point>("v:point");
-
-        Mesh::Halfedge h0, h1, h2;
-        Point p0, p1, p2, d0, d1;
-
-        for (auto e : mesh_.edges())
-        {
-            e_weight[e] = 0.0;
-
-            h0 = mesh_.halfedge(e, 0);
-            p0 = points[mesh_.to_vertex(h0)];
-
-            h1 = mesh_.halfedge(e, 1);
-            p1 = points[mesh_.to_vertex(h1)];
-
-            if (!mesh_.is_boundary(h0))
-            {
-                h2 = mesh_.next_halfedge(h0);
-                p2 = points[mesh_.to_vertex(h2)];
-                d0 = p0 - p2;
-                d1 = p1 - p2;
-                e_weight[e] += dot(d0, d1) / norm(cross(d0, d1));
-            }
-
-            if (!mesh_.is_boundary(h1))
-            {
-                h2 = mesh_.next_halfedge(h1);
-                p2 = points[mesh_.to_vertex(h2)];
-                d0 = p0 - p2;
-                d1 = p1 - p2;
-                e_weight[e] += dot(d0, d1) / norm(cross(d0, d1));
-            }
-        }
-    }*/
 
 void MeshProcessing::calc_vertices_weights() {
     Mesh::Face_around_vertex_circulator vf_c, vf_end;

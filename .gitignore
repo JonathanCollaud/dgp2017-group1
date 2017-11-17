@@ -1,8 +1,8 @@
 
 */build/*
 
+*.jpg
 *.user
 *.zip
 
 dgp2017-exercise*/externals/nanogui/*
-

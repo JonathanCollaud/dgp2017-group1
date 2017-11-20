@@ -27,23 +27,23 @@ MeshProcessing::MeshProcessing(const string& filename) {
     load_mesh(filename);
 }
 
-void MeshProcessing::create_dual_mesh() {
+void MeshProcessing::create_dual_mesh() { //"DONE"
 
     Mesh original_mesh_ = mesh_;
-    mesh_.clear();
+	mesh_.clear();
 
-    Mesh::Face_around_vertex_circulator  vf_c;
-    Mesh::Face_around_vertex_circulator vf_end;
-    Mesh::Vertex_around_face_circulator fv_c;
+	Mesh::Face_around_vertex_circulator  vf_c;
+	Mesh::Face_around_vertex_circulator vf_end;
+	Mesh::Vertex_around_face_circulator fv_c;
 
     for (Mesh::Vertex_iterator v_it = original_mesh_.vertices_begin(); v_it != original_mesh_.vertices_end(); ++v_it) {
 
-        // ------------- IMPLEMENT HERE ---------
-        // For each vertex:
-        //     compute centers of mass of the faces around vertex
-        //     add them to the mesh as vertices
-        //     create a face that consists of all these vertices that are centers of the faces around the current vertex
-        // ------------- IMPLEMENT HERE ---------
+		// ------------- IMPLEMENT HERE ---------
+		// For each vertex:
+		//     compute centers of mass of the faces around vertex
+		//     add them to the mesh as vertices
+		//     create a face that consists of all these vertices that are centers of the faces around the current vertex
+		// ------------- IMPLEMENT HERE ---------
         Mesh::Vertex_around_face_circulator fv_end;
         //The future new vector in the mesh.
         Mesh::Vertex new_v;
@@ -81,70 +81,176 @@ void MeshProcessing::create_dual_mesh() {
 
         //adding the new face to the mesh.
         mesh_.add_face(new_face_vertices);
-    }
+        new_face_vertices.clear();
+	}
 
 }
 
-void MeshProcessing::add_primitive(const Eigen::Matrix3f & R, const Eigen::Vector3f & t, const Mesh & mesh_primitive_) {
-    Mesh::Vertex_around_face_circulator fv_c;
-    Mesh::Vertex_around_face_circulator fv_end;
+void MeshProcessing::add_primitive(const Eigen::Matrix3f & R, const Eigen::Vector3f & t, const Mesh & mesh_primitive_) {//"DONE"
+	Mesh::Vertex_around_face_circulator fv_c;
+	Mesh::Vertex_around_face_circulator fv_end;
 
-    for (Mesh::Face_iterator f_it = mesh_primitive_.faces_begin(); f_it != mesh_primitive_.faces_end(); ++f_it) {
+	for (Mesh::Face_iterator f_it = mesh_primitive_.faces_begin(); f_it != mesh_primitive_.faces_end(); ++f_it) {
 
-        // ------------- IMPLEMENT HERE ---------
-        // For each face of cylinder/sphere mesh:
-        //	   For each vertex of the current face:
-        //          apply the rotation R and translation t to the vertex position
-        //          add the vertex to the mesh
-        //     add the face that consists of the new vertices to the mesh
-        // ------------- IMPLEMENT HERE ---------
+		// ------------- IMPLEMENT HERE ---------
+		// For each face of cylinder/sphere mesh:
+		//	   For each vertex of the current face:
+		//          apply the rotation R and translation t to the vertex position
+		//          add the vertex to the mesh
+		//     add the face that consists of the new vertices to the mesh
+		// ------------- IMPLEMENT HERE ---------
 
-    }
+        Eigen::Vector3f Eigenp;
+        Point p;
+        std::vector<Mesh::Vertex> new_face;
+        Mesh::Vertex v;
+
+        //Inititalizing the loop over vertices arround face vf_c
+        fv_c = mesh_primitive_.vertices(*f_it);
+        fv_end = fv_c;
+        //Starting the loop over vertices arround face vf_c
+        do{
+            p = mesh_primitive_.position(*fv_c);
+
+            //copying to Eigen vector for computations
+            Eigenp(0) = p[0];
+            Eigenp(1) = p[1];           // There must be something more efficient to transpose Point to Eigen...
+            Eigenp(2) = p[2];
+
+            //applying rotation and translation
+            Eigenp = R*Eigenp + t;
+
+            //copying back to Point
+            p[0] = Eigenp(0);
+            p[1] = Eigenp(1);
+            p[2] = Eigenp(2);
+
+            //Adding the position to the mesh
+            v = mesh_.add_vertex(p); //Does the mesh automatically delete the old one?...
+            //Adding new face's vertices
+            new_face.push_back(v);
+
+        }while(++fv_c != fv_end);
+
+        //adding the new face to the mesh.
+        mesh_.add_face(new_face);
+        new_face.clear();
+	}
 }
 
 void MeshProcessing::create_cylinder_edges() {
 
-    Mesh mesh_original_ = mesh_;
-    mesh_.clear();
-    const float CYLINDER_LENGTH = 2;
+	Mesh mesh_original_ = mesh_;
+	mesh_.clear();
+	const float CYLINDER_LENGTH = 2;
 
-    float cylinder_radius = 0.03; // adjust for different meshes
-    float sphere_radius = 0.04;	// adjust for different meshes
+	float cylinder_radius = 0.03; // adjust for different meshes
+	float sphere_radius = 0.04;	// adjust for different meshes
 
-    size_t i = 0;
-    size_t num_egdes = mesh_original_.n_edges();
-    size_t num_vertices = mesh_original_.n_vertices();
-    for (Mesh::Edge_iterator e_it = mesh_original_.edges_begin(); e_it != mesh_original_.edges_end(); ++e_it) {
+	size_t i = 0;
+	size_t num_egdes = mesh_original_.n_edges();
+	size_t num_vertices = mesh_original_.n_vertices();
 
-        // ------------- IMPLEMENT HERE ---------
-        // For each edge of the original mesh:
-        //     Compute scaling matrix S to reduce and stretch the cylinder to the size of an edge
-        //	   Compute rotation that aligns the axis of the template cylinder (0, 1, 0) with the edge direction
-        //     Compute translation vector for the template cylinder
-        //     Call add_primitive function to add the cylinder to the mesh "add_primitive(R * S, t, mesh_cylinder_)"
-        // ------------- IMPLEMENT HERE ---------
+    //ADDED
+    Eigen::Matrix3f S;
+    Eigen::Matrix3f Rx;
+    Eigen::Matrix3f Ry;
+    Eigen::Matrix3f Rz;
+    Eigen::Matrix3f R;
+    Eigen::Vector3f t;
 
-        cout << "edge " << i++ << " of " << num_egdes << endl;
+    Scalar l;
+    Scalar costheta;
+    Scalar sintheta;
+    Point direction;
+    Point axis(0,1,0);
+    Point tp;
+    Mesh::Vertex v0;
+    Mesh::Vertex v1;
+    //
 
-    }
+	for (Mesh::Edge_iterator e_it = mesh_original_.edges_begin(); e_it != mesh_original_.edges_end(); ++e_it) {
 
-    i = 0;
-    for (Mesh::Vertex_iterator v_it = mesh_original_.vertices_begin(); v_it != mesh_original_.vertices_end(); ++v_it) {
+		// ------------- IMPLEMENT HERE ---------
+		// For each edge of the original mesh:
+		//     Compute scaling matrix S to reduce and stretch the cylinder to the size of an edge
+		//	   Compute rotation that aligns the axis of the template cylinder (0, 1, 0) with the edge direction
+		//     Compute translation vector for the template cylinder
+		//     Call add_primitive function to add the cylinder to the mesh "add_primitive(R * S, t, mesh_cylinder_)"
+		// ------------- IMPLEMENT HERE ---------
 
-        // ------------- IMPLEMENT HERE ---------
-        // For each vertex of the original mesh:
-        //     Compute scaling matrix S
-        //     Compute translation vector for the template sphere
-        //     Call add_primitive function to add the sphere to the mesh "add_primitive(S, t, mesh_sphere_)"
-        // ------------- IMPLEMENT HERE ---------
+		cout << "edge " << i++ << " of " << num_egdes << endl;
 
-        cout << "vertex " << i++ << " of " << num_vertices << endl;
+        //Computing the scaling matrix S :
+        l = mesh_original_.edge_length(*e_it);
+        S << l, 0, 0,
+             0, l, 0,
+             0, 0, l;
+        v0 = mesh_original_.to_vertex( mesh_.halfedge(*e_it,0) );
+        v1 = mesh_original_.to_vertex( mesh_.halfedge(*e_it,1) );
 
-    }
+        //Computing the rotation matrix R :
+        direction = mesh_original_.position(v1) - mesh_original_.position(v0);
+        direction /= norm(direction);
+
+        costheta = norm(cross(axis,direction));
+        sintheta = dot(axis,direction);
+
+        Rx << 1,            0,          0,
+              0,            costheta,   -sintheta,
+              0,            sintheta,   costheta;
+
+        Ry << costheta,     0,          sintheta,
+              0,            1,          0,
+              -sintheta,    0,          costheta;
+
+        Rz << costheta,     -sintheta,  0,
+              sintheta,     costheta,   0,
+              0,            0,          1;
+
+        R = Rz * Ry * Rx;
+
+        //Computing the translation vector t :
+
+        tp = mesh_original_.position(v0);
+        t(0) = tp[0];
+        t(1) = tp[1];
+        t(2) = tp[2];
+
+        add_primitive(R * S, t, mesh_cylinder_);
+	}
+		
+	i = 0;	
+	for (Mesh::Vertex_iterator v_it = mesh_original_.vertices_begin(); v_it != mesh_original_.vertices_end(); ++v_it) {
+
+		// ------------- IMPLEMENT HERE ---------
+		// For each vertex of the original mesh:
+		//     Compute scaling matrix S
+		//     Compute translation vector for the template sphere
+		//     Call add_primitive function to add the sphere to the mesh "add_primitive(S, t, mesh_sphere_)"
+		// ------------- IMPLEMENT HERE ---------
+
+		cout << "vertex " << i++ << " of " << num_vertices << endl;
+
+        //Computing the scaling matrix S :
+        S << 1, 0, 0,
+             0, 1, 0,
+             0, 0, 1;
+
+        //Computing the translation vector t :
+
+        tp = mesh_original_.position(*v_it);
+        t(0) = tp[0];
+        t(1) = tp[1];
+        t(2) = tp[2];
+
+        add_primitive(S, t, mesh_sphere_);
+
+	}
 }
 
 void MeshProcessing::write_mesh() {
-    mesh_.write("../data/result.obj");
+	mesh_.write("../data/result.obj");
 }
 
 void MeshProcessing::load_mesh(const string &filename) {
@@ -180,14 +286,14 @@ void MeshProcessing::load_mesh(const string &filename) {
 }
 
 void MeshProcessing::load_primitives(const string &cylinder_mesh_filename, const string& sphere_mesh_filename) {
-    if (!mesh_cylinder_.read(cylinder_mesh_filename)) {
-        std::cerr << "Cylinder mesh not found, exiting." << std::endl;
-        exit(-1);
-    }
-    if (!mesh_sphere_.read(sphere_mesh_filename)) {
-        std::cerr << "Sphere mesh not found, exiting." << std::endl;
-        exit(-1);
-    }
+	if (!mesh_cylinder_.read(cylinder_mesh_filename)) {
+		std::cerr << "Cylinder mesh not found, exiting." << std::endl;
+		exit(-1);
+	}
+	if (!mesh_sphere_.read(sphere_mesh_filename)) {
+		std::cerr << "Sphere mesh not found, exiting." << std::endl;
+		exit(-1);
+	}
 }
 
 void MeshProcessing::compute_mesh_properties() {
@@ -207,9 +313,9 @@ void MeshProcessing::compute_mesh_properties() {
     Mesh::Vertex_property<Color> v_color_gaussian_curv =
             mesh_.vertex_property<Color>("v:color_gaussian_curv",
                                          Color(1.0f, 1.0f, 1.0f));
-    Mesh::Vertex_property<Color> v_color_laplacian =
-            mesh_.vertex_property<Color>("v:color_laplacian",
-                                         Color(1.0f, 1.0f, 1.0f));
+	Mesh::Vertex_property<Color> v_color_laplacian =
+		mesh_.vertex_property<Color>("v:color_laplacian",
+			Color(1.0f, 1.0f, 1.0f));
 
     Mesh::Vertex_property<Scalar> vertex_valence =
             mesh_.vertex_property<Scalar>("v:valence", 0.0f);
@@ -223,8 +329,8 @@ void MeshProcessing::compute_mesh_properties() {
             mesh_.vertex_property<Scalar>("v:curvature", 0.0f);
     Mesh::Vertex_property<Scalar> v_gauss_curvature =
             mesh_.vertex_property<Scalar>("v:gauss_curvature", 0.0f);
-    Mesh::Vertex_property<Scalar> v_harmonic_function =
-            mesh_.vertex_property<Scalar>("v:harmonic_function", 0.0f);
+	Mesh::Vertex_property<Scalar> v_harmonic_function =
+		mesh_.vertex_property<Scalar>("v:harmonic_function", 0.0f);
 
     // get the mesh attributes and upload them to the GPU
     int j = 0;
@@ -235,10 +341,10 @@ void MeshProcessing::compute_mesh_properties() {
     color_unicurvature_ = Eigen::MatrixXf(3, n_vertices);
     color_curvature_ = Eigen::MatrixXf(3, n_vertices);
     color_gaussian_curv_ = Eigen::MatrixXf(3, n_vertices);
-    color_laplacian_ = Eigen::MatrixXf(3, n_vertices);
+	color_laplacian_ = Eigen::MatrixXf(3, n_vertices);
     normals_ = Eigen::MatrixXf(3, n_vertices);
     points_ = Eigen::MatrixXf(3, n_vertices);
-    selection_ = Eigen::MatrixXf(3, 2);
+	selection_ = Eigen::MatrixXf(3, 2);
     indices_ = MatrixXu(3, mesh_.n_faces());
 
     for(auto f: mesh_.faces()) {
@@ -255,38 +361,38 @@ void MeshProcessing::compute_mesh_properties() {
     j = 0;
     for (auto v: mesh_.vertices()) {
         points_.col(j) << mesh_.position(v).x,
-                mesh_.position(v).y,
-                mesh_.position(v).z;
+                          mesh_.position(v).y,
+                          mesh_.position(v).z;
 
         normals_.col(j) << vertex_normal[v].x,
-                vertex_normal[v].y,
-                vertex_normal[v].z;
+                           vertex_normal[v].y,
+                           vertex_normal[v].z;
 
         color_valence_.col(j) << v_color_valence[v].x,
-                v_color_valence[v].y,
-                v_color_valence[v].z;
+                                 v_color_valence[v].y,
+                                 v_color_valence[v].z;
 
         color_unicurvature_.col(j) << v_color_unicurvature[v].x,
-                v_color_unicurvature[v].y,
-                v_color_unicurvature[v].z;
+                                      v_color_unicurvature[v].y,
+                                      v_color_unicurvature[v].z;
 
         color_curvature_.col(j) << v_color_curvature[v].x,
-                v_color_curvature[v].y,
-                v_color_curvature[v].z;
+                                   v_color_curvature[v].y,
+                                   v_color_curvature[v].z;
 
         color_gaussian_curv_.col(j) << v_color_gaussian_curv[v].x,
-                v_color_gaussian_curv[v].y,
-                v_color_gaussian_curv[v].z;
+                                       v_color_gaussian_curv[v].y,
+                                       v_color_gaussian_curv[v].z;
 
-        color_laplacian_.col(j) << v_color_laplacian[v].x,
-                v_color_laplacian[v].y,
-                v_color_laplacian[v].z;
+		color_laplacian_.col(j) << v_color_laplacian[v].x,
+								   v_color_laplacian[v].y,
+								   v_color_laplacian[v].z;
         ++j;
     }
 }
 
 void MeshProcessing::set_color(Mesh::Vertex v, const Color& col,
-                               Mesh::Vertex_property<Color> color_prop)
+               Mesh::Vertex_property<Color> color_prop)
 {
     color_prop[v] = col;
 }

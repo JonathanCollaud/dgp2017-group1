@@ -140,16 +140,16 @@ void MeshProcessing::add_primitive(const Eigen::Matrix3f & R, const Eigen::Vecto
 
 void MeshProcessing::create_cylinder_edges() {
 
-	Mesh mesh_original_ = mesh_;
-	mesh_.clear();
+    Mesh mesh_original_ = mesh_;
+    mesh_.clear();
 	const float CYLINDER_LENGTH = 2;
 
-	float cylinder_radius = 0.03; // adjust for different meshes
-	float sphere_radius = 0.04;	// adjust for different meshes
+    float cylinder_radius = 0.03; // adjust for different meshes
+    float sphere_radius = 0.04;	// adjust for different meshes
 
 	size_t i = 0;
-	size_t num_egdes = mesh_original_.n_edges();
-	size_t num_vertices = mesh_original_.n_vertices();
+    size_t num_egdes = mesh_original_.n_edges();
+    size_t num_vertices = mesh_original_.n_vertices();
 
     //ADDED
     Eigen::Matrix3f S;
@@ -169,7 +169,7 @@ void MeshProcessing::create_cylinder_edges() {
     Mesh::Vertex v1;
     //
 
-	for (Mesh::Edge_iterator e_it = mesh_original_.edges_begin(); e_it != mesh_original_.edges_end(); ++e_it) {
+    for (Mesh::Edge_iterator e_it = mesh_original_.edges_begin(); e_it != mesh_original_.edges_end(); ++e_it) {
 
 		// ------------- IMPLEMENT HERE ---------
 		// For each edge of the original mesh:
@@ -183,49 +183,59 @@ void MeshProcessing::create_cylinder_edges() {
 
         //Computing the scaling matrix S :
         l = mesh_original_.edge_length(*e_it);
-        S << l, 0, 0,
+        cout << "l=" << l << endl ;
+        S << cylinder_radius, 0, 0,
              0, l, 0,
-             0, 0, l;
+             0, 0, cylinder_radius;
         v0 = mesh_original_.to_vertex( mesh_.halfedge(*e_it,0) );
-        v1 = mesh_original_.to_vertex( mesh_.halfedge(*e_it,1) );
+        v1 = mesh_original_.from_vertex( mesh_.halfedge(*e_it,0) );
 
+        Point p0 = mesh_original_.position(v0) ;
+        Point p1 = mesh_original_.position(v1) ;
+cout << "p0:"<<p0[0] << ',' <<p0[1] << ',' <<p0[2]<< "___p1:"<<p1[0] << ','<<p1[1] << ','<<p1[2] <<  endl ;
+
+        auto v_d = p0-p1/norm(p0-p1) ; // je crée le vecteur directeur de longueur 1 de l'edge
+cout << "p0:"<<v_d[0] << ',' <<v_d[1] << ',' <<v_d[2]<< endl ;
+        //Scalar theta_z = -atan(v_d[0]/v_d[1]) ;
+// A ce que j'ai pu comprendre le cylindre est orienté dans la direction de l'axe 'y' donc je regarde
+// les angles du vecteur directeur de l'edge et je regarde les angles de celui-ci dans les plans: x-z et y-z
+// je suis pas 100% sure mais ça devrai marcher. ce qui est bizarre c'est que si
+        Scalar theta_y = atan(v_d[0]/v_d[2]) ;
+        Scalar theta_x = atan(v_d[2]/v_d[1]) ;
+cout << "theta_x:"<< theta_x << "__theta_y:" << theta_y << endl ;
         //Computing the rotation matrix R :
-        direction = mesh_original_.position(v1) - mesh_original_.position(v0);
-        direction /= norm(direction);
-
-        costheta = norm(cross(axis,direction));
-        sintheta = dot(axis,direction);
-
         Rx << 1,            0,          0,
-              0,            costheta,   -sintheta,
-              0,            sintheta,   costheta;
+              0,            cos(theta_x),   -sin(theta_x),
+              0,            sin(theta_x),   cos(theta_x);
 
-        Ry << costheta,     0,          sintheta,
+        Ry << cos(theta_y),     0,          sin(theta_y),
               0,            1,          0,
-              -sintheta,    0,          costheta;
+              -sin(theta_y),    0,          cos(theta_y);
 
-        Rz << costheta,     -sintheta,  0,
-              sintheta,     costheta,   0,
-              0,            0,          1;
+        /*Rz << cos(theta_z),     -sin(theta_z),  0,
+              sin(theta_z),     cos(theta_z),   0,
+              0,            0,          1;*/
 
-        R = Rz * Ry * Rx;
+        R = Ry  * Rx; // à mon avis seulement deux rotations suffisent
 
         //Computing the translation vector t :
 
-        tp = mesh_original_.position(v0);
+        tp = mesh_original_.position(v0); // une fois de plus c'est incompréhensible pk les positions sont si fausses !?!
+        cout << tp[0] << ',' << tp[1] << ',' << tp[2] << endl ;
         t(0) = tp[0];
         t(1) = tp[1];
         t(2) = tp[2];
 
         add_primitive(R * S, t, mesh_cylinder_);
-	}
+
+    }
 		
-	i = 0;	
-	for (Mesh::Vertex_iterator v_it = mesh_original_.vertices_begin(); v_it != mesh_original_.vertices_end(); ++v_it) {
+    i = 0;
+    for (Mesh::Vertex_iterator v_it = mesh_original_.vertices_begin(); v_it != mesh_original_.vertices_end(); ++v_it) {
 
 		// ------------- IMPLEMENT HERE ---------
 		// For each vertex of the original mesh:
-		//     Compute scaling matrix S
+        //     Compute scaling matrix S
 		//     Compute translation vector for the template sphere
 		//     Call add_primitive function to add the sphere to the mesh "add_primitive(S, t, mesh_sphere_)"
 		// ------------- IMPLEMENT HERE ---------
@@ -233,17 +243,17 @@ void MeshProcessing::create_cylinder_edges() {
 		cout << "vertex " << i++ << " of " << num_vertices << endl;
 
         //Computing the scaling matrix S :
-        S << 1, 0, 0,
-             0, 1, 0,
-             0, 0, 1;
+        S << sphere_radius, 0, 0,
+             0, sphere_radius, 0,
+             0, 0, sphere_radius;
 
         //Computing the translation vector t :
 
-        tp = mesh_original_.position(*v_it);
+        tp = mesh_original_.position(*v_it); // pk les positions sont fausses ?!?
+        cout << tp[0] << ',' << tp[1] << ',' << tp[2] << endl ;
         t(0) = tp[0];
         t(1) = tp[1];
         t(2) = tp[2];
-
         add_primitive(S, t, mesh_sphere_);
 
 	}

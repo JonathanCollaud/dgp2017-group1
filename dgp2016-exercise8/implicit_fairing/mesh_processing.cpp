@@ -32,9 +32,10 @@ void MeshProcessing::create_dual_mesh() { //"DONE"
     Mesh original_mesh_ = mesh_;
 	mesh_.clear();
 
-	Mesh::Face_around_vertex_circulator  vf_c;
-	Mesh::Face_around_vertex_circulator vf_end;
+    Mesh::Face_around_vertex_circulator  vf_c;
+    Mesh::Face_around_vertex_circulator vf_end;
 	Mesh::Vertex_around_face_circulator fv_c;
+Scalar it = 0 ;
 
     for (Mesh::Vertex_iterator v_it = original_mesh_.vertices_begin(); v_it != original_mesh_.vertices_end(); ++v_it) {
 
@@ -60,7 +61,7 @@ void MeshProcessing::create_dual_mesh() { //"DONE"
         //Starting the loop over faces arround vertex v_it
         do{
             Nv = 0;
-
+            cm = 0 ; // <----------------------
             //Inititalizing the loop over vertices arround face vf_c
             fv_c = original_mesh_.vertices(*vf_c);
             fv_end = fv_c;
@@ -69,7 +70,8 @@ void MeshProcessing::create_dual_mesh() { //"DONE"
                 cm += original_mesh_.position(*fv_c);
                 Nv++;
             }while(++fv_c != fv_end);
-
+            ++it;
+cout << it << endl ;
             //finishing the average of vertices positions
             cm /= Nv;
             //adding the new position as a new vertex on mesh_ (which is cleared in the beginning)
@@ -145,7 +147,7 @@ void MeshProcessing::create_cylinder_edges() {
 	const float CYLINDER_LENGTH = 2;
 
     float cylinder_radius = 0.03; // adjust for different meshes
-    float sphere_radius = 0.04;	// adjust for different meshes
+    float sphere_radius = 2*0.04;	// adjust for different meshes
 
 	size_t i = 0;
     size_t num_egdes = mesh_original_.n_edges();
@@ -158,6 +160,8 @@ void MeshProcessing::create_cylinder_edges() {
     Eigen::Matrix3f Rz;
     Eigen::Matrix3f R;
     Eigen::Vector3f t;
+    //Eigen::Vector3f v_d_cylindre;
+    Point v_d_cylindre ;
 
     Scalar l;
     Scalar costheta;
@@ -179,55 +183,52 @@ void MeshProcessing::create_cylinder_edges() {
 		//     Call add_primitive function to add the cylinder to the mesh "add_primitive(R * S, t, mesh_cylinder_)"
 		// ------------- IMPLEMENT HERE ---------
 
-		cout << "edge " << i++ << " of " << num_egdes << endl;
+        cout << "edge " << i++ << " of " << num_egdes << endl;
 
         //Computing the scaling matrix S :
-        l = mesh_original_.edge_length(*e_it);
-        cout << "l=" << l << endl ;
+        l = mesh_original_.edge_length(*e_it)/2;
+
         S << cylinder_radius, 0, 0,
              0, l, 0,
              0, 0, cylinder_radius;
+        // Finding the position of the two vertex of this edge
         v0 = mesh_original_.to_vertex( mesh_.halfedge(*e_it,0) );
         v1 = mesh_original_.from_vertex( mesh_.halfedge(*e_it,0) );
 
         Point p0 = mesh_original_.position(v0) ;
         Point p1 = mesh_original_.position(v1) ;
-cout << "p0:"<<p0[0] << ',' <<p0[1] << ',' <<p0[2]<< "___p1:"<<p1[0] << ','<<p1[1] << ','<<p1[2] <<  endl ;
 
-        auto v_d = p0-p1/norm(p0-p1) ; // je crée le vecteur directeur de longueur 1 de l'edge
-cout << "p0:"<<v_d[0] << ',' <<v_d[1] << ',' <<v_d[2]<< endl ;
-        //Scalar theta_z = -atan(v_d[0]/v_d[1]) ;
-// A ce que j'ai pu comprendre le cylindre est orienté dans la direction de l'axe 'y' donc je regarde
-// les angles du vecteur directeur de l'edge et je regarde les angles de celui-ci dans les plans: x-z et y-z
-// je suis pas 100% sure mais ça devrai marcher. ce qui est bizarre c'est que si
-        Scalar theta_y = atan(v_d[0]/v_d[2]) ;
-        Scalar theta_x = atan(v_d[2]/v_d[1]) ;
-cout << "theta_x:"<< theta_x << "__theta_y:" << theta_y << endl ;
-        //Computing the rotation matrix R :
-        Rx << 1,            0,          0,
-              0,            cos(theta_x),   -sin(theta_x),
-              0,            sin(theta_x),   cos(theta_x);
+        // creating direction vector of the cylindre and the edge
+        auto v_d = (p0-p1)/norm(p0-p1) ;
 
-        Ry << cos(theta_y),     0,          sin(theta_y),
-              0,            1,          0,
-              -sin(theta_y),    0,          cos(theta_y);
+        v_d_cylindre[0] = 0 ;
+        v_d_cylindre[1] = 1 ;
+        v_d_cylindre[2] = 0 ;
 
-        /*Rz << cos(theta_z),     -sin(theta_z),  0,
-              sin(theta_z),     cos(theta_z),   0,
-              0,            0,          1;*/
+        //calculating the normal vector
+        auto v_perp = cross(v_d,v_d_cylindre) ;
+        v_perp = v_perp/norm(v_perp) ;
 
-        R = Ry  * Rx; // à mon avis seulement deux rotations suffisent
+        // Calculating the angle between the two direction vector
+        auto theta = acos((dot(v_d,v_d_cylindre))/(norm(v_d)*norm(v_d_cylindre)) );
+
+        // Correction angle
+        if(theta > M_PI/2){
+            theta =  M_PI - theta ;
+        }
+
+        // Rotation matrix around any axe passing through the origin
+        R << pow(v_perp[0],2) + (1-pow(v_perp[0],2))*cos(theta),    v_perp[0]*v_perp[1]*(1-cos(theta))-v_perp[2]*sin(theta),   v_perp[0]*v_perp[2]*(1-cos(theta))+v_perp[1]*sin(theta),
+              v_perp[0]*v_perp[1]*(1-cos(theta))+v_perp[2]*sin(theta),   pow(v_perp[1],2) + (1-pow(v_perp[1],2))*cos(theta),   v_perp[1]*v_perp[2]*(1-cos(theta))-v_perp[0]*sin(theta),
+              v_perp[0]*v_perp[2]*(1-cos(theta))-v_perp[1]*sin(theta),   v_perp[1]*v_perp[2]*(1-cos(theta))+v_perp[0]*sin(theta),   pow(v_perp[2],2) + (1-pow(v_perp[2],2))*cos(theta);
 
         //Computing the translation vector t :
-
-        tp = mesh_original_.position(v0); // une fois de plus c'est incompréhensible pk les positions sont si fausses !?!
-        cout << tp[0] << ',' << tp[1] << ',' << tp[2] << endl ;
+        tp = mesh_original_.position(v0);
         t(0) = tp[0];
         t(1) = tp[1];
         t(2) = tp[2];
 
         add_primitive(R * S, t, mesh_cylinder_);
-
     }
 		
     i = 0;

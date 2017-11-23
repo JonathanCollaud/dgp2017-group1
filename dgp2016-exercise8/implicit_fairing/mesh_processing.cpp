@@ -35,10 +35,10 @@ void MeshProcessing::create_dual_mesh() { //"DONE"
     Mesh::Face_around_vertex_circulator  vf_c;
     Mesh::Face_around_vertex_circulator vf_end;
     Mesh::Vertex_around_face_circulator fv_c;
-    Scalar it = 0 ;
-
+    Mesh::Vertex same_vertex ;
+    Scalar already_exist ;
+    Point p_it ;
     for (Mesh::Vertex_iterator v_it = original_mesh_.vertices_begin(); v_it != original_mesh_.vertices_end(); ++v_it) {
-
         // ------------- IMPLEMENT HERE ---------
         // For each vertex:
         //     compute centers of mass of the faces around vertex
@@ -50,11 +50,11 @@ void MeshProcessing::create_dual_mesh() { //"DONE"
         Mesh::Vertex new_v;
         //The vector containing the vertices for the new face
         std::vector<Mesh::Vertex> new_face_vertices;
+        new_face_vertices.clear();
         //center of mass
         Point cm;
         //counter of vertices arround a face
         Scalar Nv = 0;
-
         //Inititalizing the loop over faces arround vertex v_it
         vf_c = original_mesh_.faces(*v_it);
         vf_end = vf_c;
@@ -71,15 +71,29 @@ void MeshProcessing::create_dual_mesh() { //"DONE"
                 cm += original_mesh_.position(*fv_c);
                 Nv++;
             }while(++fv_c != fv_end);
-            ++it;
-            cout << it << endl ;
             //finishing the average of vertices positions
             cm /= Nv;
-            //adding the new position as a new vertex on mesh_ (which is cleared in the beginning)
-            new_v = mesh_.add_vertex(cm);
-            //Adding the new vertex to the face vertices vector.
-            new_face_vertices.push_back(new_v);
 
+            already_exist = 0 ;
+            //verify if this point has already been added to the mesh before adding it
+            for (Mesh::Vertex_iterator v_it2 = mesh_.vertices_begin(); v_it2 != mesh_.vertices_end(); ++v_it2) {
+                p_it = mesh_.position(*v_it2);
+                if(p_it==cm)
+                {
+                    already_exist = 1 ;
+                    same_vertex = *v_it2 ;
+                }
+            }
+            if(already_exist == 1)
+            {
+                //if it was already added just add this point to the face actually beeing created
+                new_face_vertices.push_back(same_vertex) ;
+            }else{
+                //adding the new position as a new vertex on mesh_ (which is cleared in the beginning)
+                new_v = mesh_.add_vertex(cm);
+                //Adding the new vertex to the face vertices vector.
+                new_face_vertices.push_back(new_v);
+            }
         } while(++vf_c != vf_end);
 
         //adding the new face to the mesh.
@@ -158,7 +172,6 @@ void MeshProcessing::create_cylinder_edges() {
     Eigen::Matrix3f S;
     Eigen::Matrix3f R;
     Eigen::Vector3f t;
-    //Eigen::Vector3f v_d_cylindre;
     Point v_d_cylindre;
 
     Scalar l;
@@ -214,9 +227,7 @@ void MeshProcessing::create_cylinder_edges() {
         theta = acos(dot(v_d, v_d_cylindre));
 
         // Correction angle
-        if(theta > M_PI/2){
-            theta =  M_PI - theta ;
-        }
+        theta =  M_PI - theta ;
 
         // Some variables to avoid code duplication
         cos_theta = cos(theta);

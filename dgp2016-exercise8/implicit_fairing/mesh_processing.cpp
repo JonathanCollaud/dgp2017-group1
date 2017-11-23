@@ -45,6 +45,9 @@ void MeshProcessing::create_dual_mesh() { //"DONE"
         //     add them to the mesh as vertices
         //     create a face that consists of all these vertices that are centers of the faces around the current vertex
         // ------------- IMPLEMENT HERE ---------
+        if(original_mesh_.is_boundary(*v_it))
+            continue;
+
         Mesh::Vertex_around_face_circulator fv_end;
         //The future new vector in the mesh.
         Mesh::Vertex new_v;

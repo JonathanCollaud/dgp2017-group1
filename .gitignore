@@ -6,3 +6,5 @@
 *.zip
 
 dgp201*-exercise*/externals/nanogui/*
+
+*.gcode

@@ -369,7 +369,7 @@ Viewer::Viewer() : nanogui::Screen(Eigen::Vector2i(1024, 768), "DGP Viewer") {
 	b = new Button(window_, "Cylinder Edges");
 	b->setFlags(Button::ToggleButton);
 	b->setChangeCallback([this](bool normals) {
-        //mesh_->create_dual_mesh();
+        mesh_->create_dual_mesh();
 		mesh_->create_cylinder_edges();
 		cout << "DONE" << endl;
         mesh_->compute_mesh_properties();

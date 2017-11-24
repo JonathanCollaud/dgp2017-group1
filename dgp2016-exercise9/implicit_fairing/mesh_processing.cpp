@@ -38,14 +38,53 @@ void MeshProcessing::harmonic_function(const std::vector<size_t> & constraint_in
 	Eigen::SparseMatrix<double> L(n, n);
 	Eigen::MatrixXd rhs(Eigen::MatrixXd::Zero(n, 1));
 	std::vector< Eigen::Triplet<double> > triplets_L;
-
+    	// Our declarations
+    	Mesh::Halfedge_around_vertex_circulator vc, vc_end;
+    	Scalar sum = 0.;
+    	Scalar weight = 0. ;
+    	Mesh::Edge e;
+    	Mesh::Vertex ver;
+    	Scalar val ;
+    	int idx ;
+    	//
 	for (int i = 0; i < n; ++i) {
-
 		// ------------- IMPLEMENT HERE ---------
 		// Set up Laplace-Beltrami matrix of the mesh
 		// For the vertices for which the constraints are added, replace the corresponding row of the system with the constraint
 		// ------------- IMPLEMENT HERE ---------
-		
+
+        // If it is not a vertex on which there is a constraint
+        if(i != constraint_indices[0] || i != constraint_indices[1]){
+
+            //Find vertex corresponding to this index
+            Mesh::Vertex v(i);
+
+            //Initialisation of halfedge around vertex circulator
+            vc = mesh_.halfedges(v);
+            vc_end = vc;
+
+            sum = 0.;
+            do {
+                e = mesh_.edge(*vc);
+                ver = mesh_.to_vertex(*vc) ;
+                weight = cotan[e] ; // w_{i,j}
+                sum += weight ; // sum(w_{i,j})
+                triplets_L.push_back(Eigen::Triplet<double>(v.idx(), ver.idx(), weight));
+            } while(++vc != vc_end);
+            triplets_L.push_back(Eigen::Triplet<double>(v.idx(), v.idx(), -sum));
+        }else{ // If this vertex is constrained
+            if(i == constraint_indices[0]){ //If it is the first constrained
+                idx = 0 ;
+                val = 0 ;
+            }else{
+                idx = 1 ;
+                val = 1 ;
+            }
+
+            // just add a 1 in the matrix and val as right hand side
+            triplets_L.push_back(Eigen::Triplet<double>(constraint_indices[idx], constraint_indices[idx], 1));
+            rhs(constraint_indices[idx]) = val ;
+        }
 	}
 
 	L.setFromTriplets(triplets_L.begin(), triplets_L.end());

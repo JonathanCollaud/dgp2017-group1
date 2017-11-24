@@ -77,6 +77,15 @@ std::pair<size_t, size_t> get_intervals_borders(float a, float b, float l, float
 	// Use std::pair to return the indices of the first and the last interval border.
 	// ------------- IMPLEMENT HERE ---------
 
+    if(a<b){
+     intervals_borders.first = ceil((a-l)/interval_size);
+     intervals_borders.second = floor((b-l)/interval_size);
+    }
+    else{
+     intervals_borders.second = floor((a-l)/interval_size);
+     intervals_borders.first = ceil((b-l)/interval_size);
+    }
+
 	return intervals_borders;
 }
 
@@ -90,6 +99,7 @@ void MeshProcessing::add_isoline_segment(const std::pair<size_t, size_t> & borde
 	// Add an isoline segment when the isoline indices for the two edges coincide 
 	// (isolines_points_.push_back(p0); isolines_points_.push_back(p1);)
 	// ------------- IMPLEMENT HERE ---------
+
 
 }
 

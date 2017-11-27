@@ -30,31 +30,29 @@ MeshProcessing::MeshProcessing(const string& filename) {
 
 void MeshProcessing::harmonic_function(const std::vector<size_t> & constraint_indices, string property_name) {
 
-	const int n = mesh_.n_vertices();
+    const int n = mesh_.n_vertices();
 
-	calc_weights();
-	auto cotan = mesh_.edge_property<Scalar>("e:weight");
+    calc_weights();
+    auto cotan = mesh_.edge_property<Scalar>("e:weight");
 
-	Eigen::SparseMatrix<double> L(n, n);
-	Eigen::MatrixXd rhs(Eigen::MatrixXd::Zero(n, 1));
-	std::vector< Eigen::Triplet<double> > triplets_L;
-    	// Our declarations
-    	Mesh::Halfedge_around_vertex_circulator vc, vc_end;
-    	Scalar sum = 0.;
-    	Scalar weight = 0. ;
-    	Mesh::Edge e;
-    	Mesh::Vertex ver;
-    	Scalar val ;
-    	int idx ;
-    	//
-	for (int i = 0; i < n; ++i) {
-		// ------------- IMPLEMENT HERE ---------
-		// Set up Laplace-Beltrami matrix of the mesh
-		// For the vertices for which the constraints are added, replace the corresponding row of the system with the constraint
-		// ------------- IMPLEMENT HERE ---------
+    Eigen::SparseMatrix<double> L(n, n);
+    Eigen::MatrixXd rhs(Eigen::MatrixXd::Zero(n, 1));
+    std::vector< Eigen::Triplet<double> > triplets_L;
+
+    // Our declarations
+    Mesh::Halfedge_around_vertex_circulator vc, vc_end;
+    Scalar sum = 0.;
+    Scalar weight = 0.;
+    //
+
+    for (int i = 0; i < n; ++i) {
+        // ------------- IMPLEMENT HERE ---------
+        // Set up Laplace-Beltrami matrix of the mesh
+        // For the vertices for which the constraints are added, replace the corresponding row of the system with the constraint
+        // ------------- IMPLEMENT HERE ---------
 
         // If it is not a vertex on which there is a constraint
-        if(i != constraint_indices[0] || i != constraint_indices[1]){
+        if(i != constraint_indices[0] && i != constraint_indices[1]){
 
             //Find vertex corresponding to this index
             Mesh::Vertex v(i);
@@ -65,80 +63,70 @@ void MeshProcessing::harmonic_function(const std::vector<size_t> & constraint_in
 
             sum = 0.;
             do {
-                e = mesh_.edge(*vc);
-                ver = mesh_.to_vertex(*vc) ;
-                weight = cotan[e] ; // w_{i,j}
-                sum += weight ; // sum(w_{i,j})
-                triplets_L.push_back(Eigen::Triplet<double>(v.idx(), ver.idx(), weight));
+                weight = cotan[mesh_.edge(*vc)]; // w_{i,j}
+                sum += weight; // sum(w_{i,j})
+                triplets_L.push_back(Eigen::Triplet<double>(i, mesh_.to_vertex(*vc).idx(), weight));
             } while(++vc != vc_end);
-            triplets_L.push_back(Eigen::Triplet<double>(v.idx(), v.idx(), -sum));
-        }else{ // If this vertex is constrained
-            if(i == constraint_indices[0]){ //If it is the first constrained
-                idx = 0 ;
-                val = 0 ;
-            }else{
-                idx = 1 ;
-                val = 1 ;
-            }
 
-            // just add a 1 in the matrix and val as right hand side
-            triplets_L.push_back(Eigen::Triplet<double>(constraint_indices[idx], constraint_indices[idx], 1));
-            rhs(constraint_indices[idx]) = val ;
+            triplets_L.push_back(Eigen::Triplet<double>(i, i, -sum));
+
+        } else { // If this vertex is constrained
+            triplets_L.push_back(Eigen::Triplet<double>(i, i, 1));
+            rhs(i) = i;
         }
-	}
+    }
 
-	L.setFromTriplets(triplets_L.begin(), triplets_L.end());
-	Eigen::SparseLU< Eigen::SparseMatrix<double> > solver(L);
-	if (solver.info() != Eigen::Success) {
-		printf("linear solver init failed.\n");
-	}
-	Eigen::MatrixXd X = solver.solve(rhs);
-	if (solver.info() != Eigen::Success) {
-		printf("linear solver failed.\n");
-	}
-	cout << "X[0] = " << X(constraint_indices[0], 0) << endl;
-	cout << "X[1] = " << X(constraint_indices[1], 0) << endl;
+    L.setFromTriplets(triplets_L.begin(), triplets_L.end());
+    Eigen::SparseLU< Eigen::SparseMatrix<double> > solver(L);
+    if (solver.info() != Eigen::Success) {
+        printf("linear solver init failed.\n");
+    }
+    Eigen::MatrixXd X = solver.solve(rhs);
+    if (solver.info() != Eigen::Success) {
+        printf("linear solver failed.\n");
+    }
+    cout << "X[0] = " << X(constraint_indices[0], 0) << endl;
+    cout << "X[1] = " << X(constraint_indices[1], 0) << endl;
 
-	Mesh::Vertex_property<Scalar> v_harmonic_function =	mesh_.vertex_property<Scalar>(property_name, 0.0f);
-	for (int i = 0; i < n; ++i) v_harmonic_function[Mesh::Vertex(i)] = X(i, 0);
+    Mesh::Vertex_property<Scalar> v_harmonic_function =	mesh_.vertex_property<Scalar>(property_name, 0.0f);
+    for (int i = 0; i < n; ++i) v_harmonic_function[Mesh::Vertex(i)] = X(i, 0);
 
-	// clean-up
-	mesh_.remove_edge_property(cotan);
+    // clean-up
+    mesh_.remove_edge_property(cotan);
 }
 
 std::pair<size_t, size_t> get_intervals_borders(float a, float b, float l, float interval_size) {
 
-	std::pair<size_t, size_t> intervals_borders;
+    std::pair<size_t, size_t> intervals_borders;
 
-	// ------------- IMPLEMENT HERE ---------
-	// Given the values of the harmonic function that correspond to the two vertices in a triangle,
-	// find the first and the last interval border that fall between the isovalues at the two vertices
-	// Use std::pair to return the indices of the first and the last interval border.
-	// ------------- IMPLEMENT HERE ---------
+    // ------------- IMPLEMENT HERE ---------
+    // Given the values of the harmonic function that correspond to the two vertices in a triangle,
+    // find the first and the last interval border that fall between the isovalues at the two vertices
+    // Use std::pair to return the indices of the first and the last interval border.
+    // ------------- IMPLEMENT HERE ---------
 
     if(a<b){
-     intervals_borders.first = ceil((a-l)/interval_size);
-     intervals_borders.second = floor((b-l)/interval_size);
+        intervals_borders.first = ceil((a-l)/interval_size);
+        intervals_borders.second = floor((b-l)/interval_size);
     }
     else{
-     intervals_borders.second = floor((a-l)/interval_size);
-     intervals_borders.first = ceil((b-l)/interval_size);
+        intervals_borders.second = floor((a-l)/interval_size);
+        intervals_borders.first = ceil((b-l)/interval_size);
     }
 
-	return intervals_borders;
+    return intervals_borders;
 }
 
 void MeshProcessing::add_isoline_segment(const std::pair<size_t, size_t> & borders01, const std::pair<size_t, size_t> & borders02,
-	const float & iso0, const float & iso1, const float & iso2, const Point & v0, const Point & v1, const Point & v2,
-	float l, float interval_size) {
+                                         const float & iso0, const float & iso1, const float & iso2, const Point & v0, const Point & v1, const Point & v2,
+                                         float l, float interval_size) {
 
-	// ------------- IMPLEMENT HERE ---------
-	// For each two edges of a triangle check if they are intersected by the same isoline. 
-	// If this is the case, compute the intersections using linear interpolation of the isovalues.
-	// Add an isoline segment when the isoline indices for the two edges coincide 
-	// (isolines_points_.push_back(p0); isolines_points_.push_back(p1);)
-	// ------------- IMPLEMENT HERE ---------
-
+    // ------------- IMPLEMENT HERE ---------
+    // For each two edges of a triangle check if they are intersected by the same isoline.
+    // If this is the case, compute the intersections using linear interpolation of the isovalues.
+    // Add an isoline segment when the isoline indices for the two edges coincide
+    // (isolines_points_.push_back(p0); isolines_points_.push_back(p1);)
+    // ------------- IMPLEMENT HERE ---------
 
     //new variables for sake of simplicity
     Scalar iso_value; //will store the value of iso line
@@ -164,46 +152,46 @@ void MeshProcessing::add_isoline_segment(const std::pair<size_t, size_t> & borde
       }
 
 void MeshProcessing::compute_isolines(const std::vector<size_t> & constraint_indices, string property_name, size_t num_intervals) {
-	Mesh::Vertex_property<Scalar> v_harmonic_function = mesh_.vertex_property<Scalar>(property_name);
+    Mesh::Vertex_property<Scalar> v_harmonic_function = mesh_.vertex_property<Scalar>(property_name);
 
-	float lower_bound = v_harmonic_function[Mesh::Vertex(constraint_indices[0])];
-	float upper_bound = v_harmonic_function[Mesh::Vertex(constraint_indices[1])];
-	float interval_size = (upper_bound - lower_bound) / ((float)num_intervals);
+    float lower_bound = v_harmonic_function[Mesh::Vertex(constraint_indices[0])];
+    float upper_bound = v_harmonic_function[Mesh::Vertex(constraint_indices[1])];
+    float interval_size = (upper_bound - lower_bound) / ((float)num_intervals);
 
-	std::vector<std::vector<int> > triangle_ids;
+    std::vector<std::vector<int> > triangle_ids;
 
-	for (auto f : mesh_.faces()) {
-		std::vector<int> vv(3);
-		int k = 0;
-		for (auto v : mesh_.vertices(f)) {
-			vv[k] = v.idx();
-			cout << vv[k] << endl;
-			++k;
-		}
-		triangle_ids.push_back(vv);
-	}
+    for (auto f : mesh_.faces()) {
+        std::vector<int> vv(3);
+        int k = 0;
+        for (auto v : mesh_.vertices(f)) {
+            vv[k] = v.idx();
+            cout << vv[k] << endl;
+            ++k;
+        }
+        triangle_ids.push_back(vv);
+    }
 
-	for (size_t i = 0; i < triangle_ids.size(); i++) {
-		std::vector<int> vv(3);
-		for (size_t k = 0; k < triangle_ids[i].size(); k++) vv[k] = triangle_ids[i][k];
+    for (size_t i = 0; i < triangle_ids.size(); i++) {
+        std::vector<int> vv(3);
+        for (size_t k = 0; k < triangle_ids[i].size(); k++) vv[k] = triangle_ids[i][k];
 
-		Scalar iso0, iso1, iso2;
-		iso0 = v_harmonic_function[Mesh::Vertex(vv[0])];
-		iso1 = v_harmonic_function[Mesh::Vertex(vv[1])];
-		iso2 = v_harmonic_function[Mesh::Vertex(vv[2])];
+        Scalar iso0, iso1, iso2;
+        iso0 = v_harmonic_function[Mesh::Vertex(vv[0])];
+        iso1 = v_harmonic_function[Mesh::Vertex(vv[1])];
+        iso2 = v_harmonic_function[Mesh::Vertex(vv[2])];
 
-		Point v0 = mesh_.position(Mesh::Vertex(vv[0]));
-		Point v1 = mesh_.position(Mesh::Vertex(vv[1]));
-		Point v2 = mesh_.position(Mesh::Vertex(vv[2]));
+        Point v0 = mesh_.position(Mesh::Vertex(vv[0]));
+        Point v1 = mesh_.position(Mesh::Vertex(vv[1]));
+        Point v2 = mesh_.position(Mesh::Vertex(vv[2]));
 
-		std::pair<size_t, size_t> borders01 = get_intervals_borders(iso0, iso1, lower_bound, interval_size);
-		std::pair<size_t, size_t> borders12 = get_intervals_borders(iso1, iso2, lower_bound, interval_size);
-		std::pair<size_t, size_t> borders02 = get_intervals_borders(iso0, iso2, lower_bound, interval_size);
+        std::pair<size_t, size_t> borders01 = get_intervals_borders(iso0, iso1, lower_bound, interval_size);
+        std::pair<size_t, size_t> borders12 = get_intervals_borders(iso1, iso2, lower_bound, interval_size);
+        std::pair<size_t, size_t> borders02 = get_intervals_borders(iso0, iso2, lower_bound, interval_size);
 
-		add_isoline_segment(borders01, borders02, iso0, iso1, iso2, v0, v1, v2, lower_bound, interval_size);
-		add_isoline_segment(borders01, borders12, iso1, iso0, iso2, v1, v0, v2, lower_bound, interval_size);
-		add_isoline_segment(borders02, borders12, iso2, iso0, iso1, v2, v0, v1, lower_bound, interval_size);
-	}
+        add_isoline_segment(borders01, borders02, iso0, iso1, iso2, v0, v1, v2, lower_bound, interval_size);
+        add_isoline_segment(borders01, borders12, iso1, iso0, iso2, v1, v0, v2, lower_bound, interval_size);
+        add_isoline_segment(borders02, borders12, iso2, iso0, iso1, v2, v0, v1, lower_bound, interval_size);
+    }
 }
 
 void MeshProcessing::calc_uniform_mean_curvature() {
@@ -428,9 +416,9 @@ void MeshProcessing::compute_mesh_properties() {
     Mesh::Vertex_property<Color> v_color_gaussian_curv =
             mesh_.vertex_property<Color>("v:color_gaussian_curv",
                                          Color(1.0f, 1.0f, 1.0f));
-	Mesh::Vertex_property<Color> v_color_laplacian =
-		mesh_.vertex_property<Color>("v:color_laplacian",
-			Color(1.0f, 1.0f, 1.0f));
+    Mesh::Vertex_property<Color> v_color_laplacian =
+            mesh_.vertex_property<Color>("v:color_laplacian",
+                                         Color(1.0f, 1.0f, 1.0f));
 
     Mesh::Vertex_property<Scalar> vertex_valence =
             mesh_.vertex_property<Scalar>("v:valence", 0.0f);
@@ -444,8 +432,8 @@ void MeshProcessing::compute_mesh_properties() {
             mesh_.vertex_property<Scalar>("v:curvature", 0.0f);
     Mesh::Vertex_property<Scalar> v_gauss_curvature =
             mesh_.vertex_property<Scalar>("v:gauss_curvature", 0.0f);
-	Mesh::Vertex_property<Scalar> v_harmonic_function =
-		mesh_.vertex_property<Scalar>("v:harmonic_function_0", 0.0f);
+    Mesh::Vertex_property<Scalar> v_harmonic_function =
+            mesh_.vertex_property<Scalar>("v:harmonic_function_0", 0.0f);
 
     calc_weights();
     calc_uniform_mean_curvature();
@@ -455,7 +443,7 @@ void MeshProcessing::compute_mesh_properties() {
     color_coding(v_unicurvature, &mesh_, v_color_unicurvature);
     color_coding(v_curvature, &mesh_, v_color_curvature);
     color_coding(v_gauss_curvature, &mesh_, v_color_gaussian_curv);
-	color_coding(v_harmonic_function, &mesh_, v_color_laplacian);
+    color_coding(v_harmonic_function, &mesh_, v_color_laplacian);
 
     // get the mesh attributes and upload them to the GPU
     int j = 0;
@@ -467,10 +455,10 @@ void MeshProcessing::compute_mesh_properties() {
     color_unicurvature_ = Eigen::MatrixXf(3, n_vertices);
     color_curvature_ = Eigen::MatrixXf(3, n_vertices);
     color_gaussian_curv_ = Eigen::MatrixXf(3, n_vertices);
-	color_laplacian_ = Eigen::MatrixXf(3, n_vertices);
+    color_laplacian_ = Eigen::MatrixXf(3, n_vertices);
     normals_ = Eigen::MatrixXf(3, n_vertices);
     points_ = Eigen::MatrixXf(3, n_vertices);
-	selection_ = Eigen::MatrixXf(3, 4);
+    selection_ = Eigen::MatrixXf(3, 4);
     indices_ = MatrixXu(3, mesh_.n_faces());
 
     for(auto f: mesh_.faces()) {
@@ -487,38 +475,38 @@ void MeshProcessing::compute_mesh_properties() {
     j = 0;
     for (auto v: mesh_.vertices()) {
         points_.col(j) << mesh_.position(v).x,
-                          mesh_.position(v).y,
-                          mesh_.position(v).z;
+                mesh_.position(v).y,
+                mesh_.position(v).z;
 
         normals_.col(j) << vertex_normal[v].x,
-                           vertex_normal[v].y,
-                           vertex_normal[v].z;
+                vertex_normal[v].y,
+                vertex_normal[v].z;
 
         color_valence_.col(j) << v_color_valence[v].x,
-                                 v_color_valence[v].y,
-                                 v_color_valence[v].z;
+                v_color_valence[v].y,
+                v_color_valence[v].z;
 
         color_unicurvature_.col(j) << v_color_unicurvature[v].x,
-                                      v_color_unicurvature[v].y,
-                                      v_color_unicurvature[v].z;
+                v_color_unicurvature[v].y,
+                v_color_unicurvature[v].z;
 
         color_curvature_.col(j) << v_color_curvature[v].x,
-                                   v_color_curvature[v].y,
-                                   v_color_curvature[v].z;
+                v_color_curvature[v].y,
+                v_color_curvature[v].z;
 
         color_gaussian_curv_.col(j) << v_color_gaussian_curv[v].x,
-                                       v_color_gaussian_curv[v].y,
-                                       v_color_gaussian_curv[v].z;
+                v_color_gaussian_curv[v].y,
+                v_color_gaussian_curv[v].z;
 
-		color_laplacian_.col(j) << v_color_laplacian[v].x,
-								   v_color_laplacian[v].y,
-								   v_color_laplacian[v].z;
+        color_laplacian_.col(j) << v_color_laplacian[v].x,
+                v_color_laplacian[v].y,
+                v_color_laplacian[v].z;
         ++j;
     }
 }
 
 void MeshProcessing::color_coding(Mesh::Vertex_property<Scalar> prop, Mesh *mesh,
-                  Mesh::Vertex_property<Color> color_prop, int bound) {
+                                  Mesh::Vertex_property<Color> color_prop, int bound) {
     // Get the value array
     std::vector<Scalar> values = prop.vector();
 
@@ -536,7 +524,7 @@ void MeshProcessing::color_coding(Mesh::Vertex_property<Scalar> prop, Mesh *mesh
 }
 
 void MeshProcessing::set_color(Mesh::Vertex v, const Color& col,
-               Mesh::Vertex_property<Color> color_prop)
+                               Mesh::Vertex_property<Color> color_prop)
 {
     color_prop[v] = col;
 }
@@ -576,23 +564,23 @@ Color MeshProcessing::value_to_color(Scalar value, Scalar min_value, Scalar max_
 }
 
 Eigen::Vector3f MeshProcessing::get_closest_vertex(const Eigen::Vector3f & origin, const Eigen::Vector3f & direction, size_t & closest_index) {
-	float min_distance = std::numeric_limits<float>::max();
-	Eigen::Vector3f closest_vertex;
+    float min_distance = std::numeric_limits<float>::max();
+    Eigen::Vector3f closest_vertex;
 
-	for (int i = 0; i <  mesh_.n_vertices(); ++i) {
-		Mesh::Vertex v(i);
-		Eigen::Vector3f point;
-		point << mesh_.position(v).x, mesh_.position(v).y, mesh_.position(v).z;
-		float projection_length = (point - origin).dot(direction);
-		Eigen::Vector3f difference = point - (origin + projection_length * direction);
-		float distance = difference.norm();
-		if (distance < min_distance) {
-			closest_index = i;
-			min_distance = distance;
-			closest_vertex = point;
-		}
-	}
-	return closest_vertex;
+    for (int i = 0; i <  mesh_.n_vertices(); ++i) {
+        Mesh::Vertex v(i);
+        Eigen::Vector3f point;
+        point << mesh_.position(v).x, mesh_.position(v).y, mesh_.position(v).z;
+        float projection_length = (point - origin).dot(direction);
+        Eigen::Vector3f difference = point - (origin + projection_length * direction);
+        float distance = difference.norm();
+        if (distance < min_distance) {
+            closest_index = i;
+            min_distance = distance;
+            closest_vertex = point;
+        }
+    }
+    return closest_vertex;
 }
 
 MeshProcessing::~MeshProcessing() {}

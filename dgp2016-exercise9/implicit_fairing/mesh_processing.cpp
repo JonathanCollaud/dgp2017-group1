@@ -130,26 +130,26 @@ void MeshProcessing::add_isoline_segment(const std::pair<size_t, size_t> & borde
 
     //new variables for sake of simplicity
     Scalar iso_value; //will store the value of iso line
-    Scalar t; //will store the parameter of linear interpolation
-    Point p0;
+    Scalar t1, t2; //will store the parameter of linear interpolation
     Point p1;
+    Point p2;
 
-            for(size_t i = max(borders01.first, borders02.first);
-                       i <= min(borders01.first, borders02.first);
-                       ++i){
+    for(size_t i = std::max(borders01.first, borders02.first);
+        i <= std::min(borders01.second, borders02.second);
+        ++i){
 
-                iso_value = i * interval_size - l;
+        iso_value = i * interval_size + l;
 
-                t = (iso_value - iso0)/(iso1-iso0);
+        t1 = (iso_value - iso0)/(iso1-iso0);
+        t2 = (iso_value - iso0)/(iso2-iso0);
 
-                p0 = v0 + t * (v1 - v0);
+        p1 = v0 + t1 * (v1 - v0);
+        p2 = v0 + t2 * (v2 - v0);
 
-                p1 = v0 + t * (v2 - v0);
-
-                isolines_points_.push_back(p0);
-                isolines_points_.push_back(p1);
-            }
-      }
+        isolines_points_.push_back(p1);
+        isolines_points_.push_back(p2);
+    }
+}
 
 void MeshProcessing::compute_isolines(const std::vector<size_t> & constraint_indices, string property_name, size_t num_intervals) {
     Mesh::Vertex_property<Scalar> v_harmonic_function = mesh_.vertex_property<Scalar>(property_name);

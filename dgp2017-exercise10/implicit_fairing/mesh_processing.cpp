@@ -134,6 +134,19 @@ void MeshProcessing::deformation_axis(int mode) {
 
     // clean-up
     mesh_.remove_edge_property(cotan);
+
+    // Solve the linear system L2*x = rhs for x
+    Eigen::SimplicialLDLT< Eigen::SparseMatrix<double> > solver(L2);
+    Eigen::MatrixXd X = solver.solve(rhs);
+
+    auto points = mesh_.vertex_property<Point>("v:point");
+
+    // copy solution
+    for (int i = 0; i < N; ++i)
+    {
+        Mesh::Vertex v(i);
+        points[v][0] += X(i, 0);
+    }
 }
 
 void MeshProcessing::calc_uniform_mean_curvature() {

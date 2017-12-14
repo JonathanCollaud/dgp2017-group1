@@ -86,7 +86,7 @@ void MeshProcessing::deformation_axis(int mode) {
     //    Hint: the input parameter of the function "mode" indicates the current displacement axis.
     //    the function deformation_axis() is called 3 times, with mode = 0, mode = 1 and mode = 2 for the axis X, Y and Z
     // ------------- IMPLEMENT HERE ---------
-
+/*
     for (int k=0; k<L.outerSize(); ++k)
     {// go through all column of the matrix
         for (int l=0; l<fixed_faces_points_indices_.size() ; l++)
@@ -109,7 +109,7 @@ void MeshProcessing::deformation_axis(int mode) {
         }
         for (int l=0; l<shifted_faces_points_indices_.size() ; l++)
         { // go through all elements shifted
-            if( k == shifted_faces_points_indices_[mode])
+            if( k == shifted_faces_points_indices_[l])//AH : Changed mode to l
             {// If this column represent a line of shifted point
                 // change right hand side to the displacement value
                 rhs(k) = displacement_[mode] ;
@@ -128,9 +128,55 @@ void MeshProcessing::deformation_axis(int mode) {
     }
     L.setFromTriplets(triplets_L.begin(), triplets_L.end());
     // transpose L
-    L = L.transpose() ;
+    L = L.transpose();
 
     L2 = L * L;
+*/
+    //NEW VERSION
+
+    L2 = L * L;
+    for (int k=0; k<L2.outerSize(); ++k)
+    {// go through all column of the matrix
+        for (int l=0; l<fixed_faces_points_indices_.size() ; l++)
+        { // go through all elements fixed
+            if( k == fixed_faces_points_indices_[l])
+            {// If this column represent a line of fixed point
+                // change right hand side to zero
+                rhs(k) = 0 ;
+                // adapt the entire column to have zero everywhere but on the diagonal where it is = 1
+                for (Eigen::SparseMatrix<double>::InnerIterator it(L2,k); it; ++it)
+                {
+                    if (it.row()==it.col())
+                    {
+                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 1));
+                    }else{
+                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 0));
+                    }
+                }
+            }
+        }
+        for (int l=0; l<shifted_faces_points_indices_.size() ; l++)
+        { // go through all elements shifted
+            if( k == shifted_faces_points_indices_[l])//AH : Changed mode to l
+            {// If this column represent a line of shifted point
+                // change right hand side to the displacement value
+                rhs(k) = displacement_[mode] ;
+                // adapt the entire column to have zero everywhere but on the diagonal where it is = 1
+                for (Eigen::SparseMatrix<double>::InnerIterator it(L2,k); it; ++it)
+                {
+                    if (it.row()==it.col())
+                    {
+                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 1));
+                    }else{
+                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 0));
+                    }
+                }
+            }
+        }
+    }
+    L2.setFromTriplets(triplets_L.begin(), triplets_L.end());
+    // transpose L
+    L2 = L2.transpose();
 
     // clean-up
     mesh_.remove_edge_property(cotan);
@@ -139,13 +185,14 @@ void MeshProcessing::deformation_axis(int mode) {
     Eigen::SimplicialLDLT< Eigen::SparseMatrix<double> > solver(L2);
     Eigen::MatrixXd X = solver.solve(rhs);
 
+    // Get vertices coordinates
     auto points = mesh_.vertex_property<Point>("v:point");
 
     // copy solution
     for (int i = 0; i < N; ++i)
     {
         Mesh::Vertex v(i);
-        points[v][0] += X(i, 0);
+        points[v][mode] += X(i);
     }
 }
 

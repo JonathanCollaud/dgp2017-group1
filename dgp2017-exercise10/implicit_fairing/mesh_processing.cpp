@@ -40,12 +40,13 @@ void MeshProcessing::deformation_axis(int mode) {
     calc_weights();
     auto cotan = mesh_.edge_property<Scalar>("e:weight");
 
-    Eigen::SparseMatrix<double> L(N, N), L2(N, N);
+    Eigen::SparseMatrix<double> L(N, N), L2(N, N), L2T(N, N);
     Eigen::MatrixXd rhs(Eigen::MatrixXd::Zero(N, 1));
     std::vector< Eigen::Triplet<double> > triplets_L;
 
     // Our declarations
     Mesh::Halfedge_around_vertex_circulator vc, vc_end;
+    std::vector<size_t>::iterator p;
     Scalar sum = 0.;
     Scalar weight = 0.;
 
@@ -86,114 +87,44 @@ void MeshProcessing::deformation_axis(int mode) {
     //    Hint: the input parameter of the function "mode" indicates the current displacement axis.
     //    the function deformation_axis() is called 3 times, with mode = 0, mode = 1 and mode = 2 for the axis X, Y and Z
     // ------------- IMPLEMENT HERE ---------
-/*
-    for (int k=0; k<L.outerSize(); ++k)
-    {// go through all column of the matrix
-        for (int l=0; l<fixed_faces_points_indices_.size() ; l++)
-        { // go through all elements fixed
-            if( k == fixed_faces_points_indices_[l])
-            {// If this column represent a line of fixed point
-                // change right hand side to zero
-                rhs(k) = 0 ;
-                // adapt the entire column to have zero everywhere but on the diagonal where it is = 1
-                for (Eigen::SparseMatrix<double>::InnerIterator it(L,k); it; ++it)
-                {
-                    if (it.row()==it.col())
-                    {
-                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 1));
-                    }else{
-                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 0));
-                    }
-                }
-            }
-        }
-        for (int l=0; l<shifted_faces_points_indices_.size() ; l++)
-        { // go through all elements shifted
-            if( k == shifted_faces_points_indices_[l])//AH : Changed mode to l
-            {// If this column represent a line of shifted point
-                // change right hand side to the displacement value
-                rhs(k) = displacement_[mode] ;
-                // adapt the entire column to have zero everywhere but on the diagonal where it is = 1
-                for (Eigen::SparseMatrix<double>::InnerIterator it(L,k); it; ++it)
-                {
-                    if (it.row()==it.col())
-                    {
-                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 1));
-                    }else{
-                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 0));
-                    }
-                }
-            }
-        }
-    }
-    L.setFromTriplets(triplets_L.begin(), triplets_L.end());
-    // transpose L
-    L = L.transpose();
 
     L2 = L * L;
-*/
-    //NEW VERSION
 
-    L2 = L * L;
-    for (int k=0; k<L2.outerSize(); ++k)
-    {// go through all column of the matrix
-        for (int l=0; l<fixed_faces_points_indices_.size() ; l++)
-        { // go through all elements fixed
-            if( k == fixed_faces_points_indices_[l])
-            {// If this column represent a line of fixed point
-                // change right hand side to zero
-                rhs(k) = 0 ;
-                // adapt the entire column to have zero everywhere but on the diagonal where it is = 1
-                for (Eigen::SparseMatrix<double>::InnerIterator it(L2,k); it; ++it)
-                {
-                    if (it.row()==it.col())
-                    {
-                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 1));
-                    }else{
-                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 0));
-                    }
-                }
-            }
-        }
-        for (int l=0; l<shifted_faces_points_indices_.size() ; l++)
-        { // go through all elements shifted
-            if( k == shifted_faces_points_indices_[l])//AH : Changed mode to l
-            {// If this column represent a line of shifted point
-                // change right hand side to the displacement value
-                rhs(k) = displacement_[mode] ;
-                // adapt the entire column to have zero everywhere but on the diagonal where it is = 1
-                for (Eigen::SparseMatrix<double>::InnerIterator it(L2,k); it; ++it)
-                {
-                    if (it.row()==it.col())
-                    {
-                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 1));
-                    }else{
-                        triplets_L.push_back(Eigen::Triplet<double>(it.row(), it.col(), 0));
-                    }
-                }
-            }
-        }
+    // go through all elements fixed
+    for (p = fixed_faces_points_indices_.begin(); p != fixed_faces_points_indices_.end(); ++p) {
+        // adapt the entire column to have zero everywhere but on the diagonal where it is = 1
+        for (Eigen::SparseMatrix<double>::InnerIterator it(L2,*p); it; ++it)
+            L2.coeffRef(it.row(), it.col()) = it.row() == it.col() ? 1 : 0;
     }
-    L2.setFromTriplets(triplets_L.begin(), triplets_L.end());
-    // transpose L
+
+    // go through all elements shifted
+    for (p = shifted_faces_points_indices_.begin(); p != shifted_faces_points_indices_.end(); ++p) {
+        // change right hand side to the displacement value
+        rhs(*p) = displacement_[mode] ;
+        // adapt the entire column to have zero everywhere but on the diagonal where it is = 1
+        for (Eigen::SparseMatrix<double>::InnerIterator it(L2,*p); it; ++it){
+            L2.coeffRef(it.row(), it.col()) = it.row() == it.col() ? 1 : 0;}
+    }
+
+
+    // transpose L2
     L2 = L2.transpose();
 
-    // clean-up
-    mesh_.remove_edge_property(cotan);
-
     // Solve the linear system L2*x = rhs for x
-    Eigen::SimplicialLDLT< Eigen::SparseMatrix<double> > solver(L2);
-    Eigen::MatrixXd X = solver.solve(rhs);
+    Eigen::SparseLU< Eigen::SparseMatrix<double> > solver(L2);
+    Eigen::MatrixXd x = solver.solve(rhs);
 
     // Get vertices coordinates
     auto points = mesh_.vertex_property<Point>("v:point");
 
-    // copy solution
-    for (int i = 0; i < N; ++i)
-    {
+    // Displace vertices
+    for (int i = 0; i < N; ++i) {
         Mesh::Vertex v(i);
-        points[v][mode] += X(i);
+        points[v][mode] += x(i);
     }
+
+    // clean-up
+    mesh_.remove_edge_property(cotan);
 }
 
 void MeshProcessing::calc_uniform_mean_curvature() {
